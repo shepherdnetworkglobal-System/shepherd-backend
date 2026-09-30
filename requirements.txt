@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 sqlalchemy
+psycopg2-binary
 pydantic
 pydantic-settings
 email-validator
@@ -8,6 +9,7 @@ python-dotenv
 python-multipart
 passlib[bcrypt]
 bcrypt
+pyjwt
 stellar-sdk
 requests
 httpx

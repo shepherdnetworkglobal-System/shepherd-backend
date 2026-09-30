@@ -59,6 +59,10 @@ class MissionaryProfile(Base):
     government_id_url = Column(String(500), nullable=True)
     selfie_url = Column(String(500), nullable=True)
     proof_of_address_url = Column(String(500), nullable=True)
+    profile_photo_url = Column(String(500), nullable=True)
+    biography = Column(Text, nullable=True)
+    years_of_service = Column(Integer, default=0, nullable=False)
+    calling_description = Column(Text, nullable=True)
     stellar_payout_address = Column(String(56), nullable=True)
     mpesa_phone_number = Column(String(20), nullable=True)
     verification_status = Column(Enum(VerificationStatus), default=VerificationStatus.DRAFT, nullable=False)
@@ -68,6 +72,23 @@ class MissionaryProfile(Base):
 
     user = relationship("User", back_populates="missionary_profile")
     missions = relationship("Mission", back_populates="missionary")
+    past_projects = relationship("PastProject", back_populates="missionary", cascade="all, delete-orphan")
+
+
+class PastProject(Base):
+    __tablename__ = "past_projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    missionary_id = Column(Integer, ForeignKey("missionary_profiles.id"), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    location = Column(String(200), nullable=True)
+    year_completed = Column(Integer, nullable=True)
+    people_impacted = Column(Integer, default=0, nullable=False)
+    media_urls = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    missionary = relationship("MissionaryProfile", back_populates="past_projects")
 
 
 class Mission(Base):

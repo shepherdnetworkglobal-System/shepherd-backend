@@ -5,12 +5,26 @@ from pydantic import BaseModel, EmailStr
 from app.models.models import UserRole, VerificationStatus, MissionStatus, DonationStatus
 
 
-# --- User Schemas ---
+# --- User & Auth Schemas ---
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
     full_name: str
     role: UserRole = UserRole.DONOR
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user_id: int
+    email: str
+    full_name: str
+    role: UserRole
 
 
 class UserResponse(BaseModel):
@@ -31,6 +45,35 @@ class MissionaryProfileCreate(BaseModel):
     organization_name: Optional[str] = None
     stellar_payout_address: Optional[str] = None
     mpesa_phone_number: Optional[str] = None
+    profile_photo_url: Optional[str] = None
+    biography: Optional[str] = None
+    years_of_service: int = 0
+    calling_description: Optional[str] = None
+
+
+class PastProjectCreate(BaseModel):
+    missionary_id: int
+    title: str
+    description: str
+    location: Optional[str] = None
+    year_completed: Optional[int] = None
+    people_impacted: int = 0
+    media_urls: Optional[str] = None
+
+
+class PastProjectResponse(BaseModel):
+    id: int
+    missionary_id: int
+    title: str
+    description: str
+    location: Optional[str]
+    year_completed: Optional[int]
+    people_impacted: int
+    media_urls: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class MissionaryDocumentUpload(BaseModel):
@@ -56,12 +99,36 @@ class MissionaryProfileResponse(BaseModel):
     government_id_url: Optional[str]
     selfie_url: Optional[str]
     proof_of_address_url: Optional[str]
+    profile_photo_url: Optional[str]
+    biography: Optional[str]
+    years_of_service: int
+    calling_description: Optional[str]
     stellar_payout_address: Optional[str]
     mpesa_phone_number: Optional[str]
     verification_status: VerificationStatus
     admin_notes: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MissionaryPublicProfile(BaseModel):
+    id: int
+    shepherd_id: Optional[str]
+    full_name: str
+    country: str
+    organization_name: Optional[str]
+    profile_photo_url: Optional[str]
+    biography: Optional[str]
+    years_of_service: int
+    calling_description: Optional[str]
+    verification_status: VerificationStatus
+    active_missions: list
+    past_projects: list[PastProjectResponse]
+    total_funds_deployed: Decimal
+    total_people_served: int
 
     class Config:
         from_attributes = True
