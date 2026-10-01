@@ -316,6 +316,18 @@ class MissionCreate(BaseModel):
     reporting_plan: Optional[str] = None
 
 
+class MissionUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[MissionStatus] = None
+    underfunding_rule: Optional[UnderfundingRule] = None
+    overfunding_rule: Optional[OverfundingRule] = None
+    exact_location_hidden: Optional[bool] = None
+    location_granularity: Optional[str] = None
+    reporting_plan: Optional[str] = None
+    local_partners: Optional[str] = None
+
+
 class MissionResponse(BaseModel):
     id: int
     missionary_id: int
