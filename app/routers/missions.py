@@ -9,14 +9,18 @@ from seed_demo import run_demo_seed
 router = APIRouter(prefix="/api/missions", tags=["Missions"])
 
 
+import traceback
+
 @router.post("/seed")
 @router.get("/seed")
 def seed_demo_data(db: Session = Depends(get_db)):
     try:
         run_demo_seed(db)
-        return {"status": "success", "message": "Demo missions seeded successfully"}
+        missions_count = db.query(Mission).count()
+        return {"status": "success", "message": "Demo missions seeded successfully", "total_missions": missions_count}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print("SEED ERROR TRACEBACK:\n", traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Seed error: {str(e)}")
 
 
 @router.post("/", response_model=MissionResponse)
