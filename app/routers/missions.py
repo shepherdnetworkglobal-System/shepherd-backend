@@ -4,8 +4,19 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.models.models import Mission, MissionaryProfile, VerificationStatus
 from app.schemas.schemas import MissionCreate, MissionResponse, MissionUpdate
+from seed_demo import run_demo_seed
 
 router = APIRouter(prefix="/api/missions", tags=["Missions"])
+
+
+@router.post("/seed")
+@router.get("/seed")
+def seed_demo_data(db: Session = Depends(get_db)):
+    try:
+        run_demo_seed(db)
+        return {"status": "success", "message": "Demo missions seeded successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/", response_model=MissionResponse)
