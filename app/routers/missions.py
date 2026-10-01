@@ -49,7 +49,14 @@ def create_mission(
 
 @router.get("/", response_model=List[MissionResponse])
 def list_missions(db: Session = Depends(get_db)):
-    return db.query(Mission).all()
+    missions = db.query(Mission).all()
+    if not missions:
+        try:
+            run_demo_seed(db)
+            missions = db.query(Mission).all()
+        except Exception as e:
+            print(f"Auto-seed note: {e}")
+    return missions
 
 
 @router.get("/{mission_id}", response_model=MissionResponse)
