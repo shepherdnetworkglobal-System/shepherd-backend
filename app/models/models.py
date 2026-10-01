@@ -182,7 +182,7 @@ class MissionaryReference(Base):
     ref_type = Column(String(50), nullable=False)
     email = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
-    relationship = Column(String(255), nullable=True)
+    ref_relationship = Column(String(255), nullable=True)
     verification_notes = Column(Text, nullable=True)
     is_confirmed = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
