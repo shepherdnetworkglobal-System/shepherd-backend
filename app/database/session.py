@@ -3,11 +3,12 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.core.config import settings
 
-# Handles SQLite for local dev and PostgreSQL for Railway production
 db_url = settings.DATABASE_URL
+
+# Force psycopg2 driver for PostgreSQL connections on Railway/Production
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql+psycopg2://", 1)
-elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+"):
+elif db_url.startswith("postgresql://"):
     db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 connect_args = {"check_same_thread": False} if db_url.startswith("sqlite") else {}
