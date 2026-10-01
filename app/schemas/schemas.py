@@ -1,8 +1,20 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, EmailStr
-from app.models.models import UserRole, VerificationStatus, MissionStatus, DonationStatus
+from app.models.models import (
+    UserRole,
+    VerificationStatus,
+    MissionStatus,
+    DonationStatus,
+    AffiliationPath,
+    RiskTier,
+    LayerStatus,
+    CaseDecision,
+    PayoutMethodType,
+    UnderfundingRule,
+    OverfundingRule
+)
 
 
 # --- User & Auth Schemas ---
@@ -32,6 +44,121 @@ class UserResponse(BaseModel):
     email: str
     full_name: str
     role: UserRole
+    email_verified: bool = False
+    phone_verified: bool = False
+    mfa_enrolled: bool = False
+    terms_consented_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# --- Organization & Sub-entity Schemas ---
+class OrganizationCreate(BaseModel):
+    official_name: str
+    registry_id: Optional[str] = None
+    entity_type: Optional[str] = None
+    official_domain: Optional[str] = None
+    official_contact_email: Optional[EmailStr] = None
+    gov_docs_url: Optional[str] = None
+    auth_rep_name: Optional[str] = None
+
+
+class OrganizationResponse(BaseModel):
+    id: int
+    official_name: str
+    registry_id: Optional[str]
+    entity_type: Optional[str]
+    official_domain: Optional[str]
+    official_contact_email: Optional[str]
+    gov_docs_url: Optional[str]
+    auth_rep_name: Optional[str]
+    is_verified: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MissionaryReferenceCreate(BaseModel):
+    missionary_id: int
+    ref_name: str
+    ref_type: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    relationship: Optional[str] = None
+
+
+class MissionaryReferenceResponse(BaseModel):
+    id: int
+    missionary_id: int
+    ref_name: str
+    ref_type: str
+    email: Optional[str]
+    phone: Optional[str]
+    relationship: Optional[str]
+    verification_notes: Optional[str]
+    is_confirmed: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PayoutDestinationCreate(BaseModel):
+    missionary_id: int
+    method_type: PayoutMethodType
+    destination_account: str
+    currency: str = "USD"
+    is_primary: bool = False
+
+
+class PayoutDestinationResponse(BaseModel):
+    id: int
+    missionary_id: int
+    method_type: PayoutMethodType
+    destination_account: str
+    currency: str
+    is_primary: bool
+    is_verified: bool
+    cooling_period_ends_at: Optional[datetime]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class VerificationCaseCreate(BaseModel):
+    missionary_id: int
+    layer: str
+    reviewer_notes: Optional[str] = None
+    structured_exceptions: Optional[str] = None
+    decision: CaseDecision
+
+
+class VerificationCaseResponse(BaseModel):
+    id: int
+    missionary_id: int
+    layer: str
+    reviewer_id: Optional[int]
+    reviewer_notes: Optional[str]
+    structured_exceptions: Optional[str]
+    decision: CaseDecision
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RiskScreeningResponse(BaseModel):
+    id: int
+    missionary_id: int
+    screening_type: str
+    risk_score: int
+    flags_json: Optional[str]
+    reviewed_by: Optional[int]
+    status: str
     created_at: datetime
 
     class Config:
@@ -42,6 +169,7 @@ class UserResponse(BaseModel):
 class MissionaryProfileCreate(BaseModel):
     user_id: int
     country: str
+    affiliation_path: AffiliationPath = AffiliationPath.INDEPENDENT
     organization_name: Optional[str] = None
     stellar_payout_address: Optional[str] = None
     mpesa_phone_number: Optional[str] = None
@@ -87,12 +215,26 @@ class AdminVerificationReview(BaseModel):
     status: VerificationStatus
     admin_notes: Optional[str] = None
     shepherd_id: Optional[str] = None
+    affiliation_path: Optional[AffiliationPath] = None
+    risk_tier: Optional[RiskTier] = None
+    identity_layer_status: Optional[LayerStatus] = None
+    address_layer_status: Optional[LayerStatus] = None
+    affiliation_layer_status: Optional[LayerStatus] = None
+    organization_layer_status: Optional[LayerStatus] = None
+    payout_layer_status: Optional[LayerStatus] = None
+    mission_layer_status: Optional[LayerStatus] = None
+    history_layer_status: Optional[LayerStatus] = None
+    badge_identity_verified: Optional[bool] = None
+    badge_org_verified: Optional[bool] = None
+    badge_payout_verified: Optional[bool] = None
+    badge_mission_verified: Optional[bool] = None
 
 
 class MissionaryProfileResponse(BaseModel):
     id: int
     user_id: int
     shepherd_id: Optional[str]
+    organization_id: Optional[int]
     country: str
     organization_name: Optional[str]
     organization_cert_url: Optional[str]
@@ -105,8 +247,27 @@ class MissionaryProfileResponse(BaseModel):
     calling_description: Optional[str]
     stellar_payout_address: Optional[str]
     mpesa_phone_number: Optional[str]
+    
+    affiliation_path: AffiliationPath
+    risk_tier: RiskTier
+    
+    identity_layer_status: LayerStatus
+    address_layer_status: LayerStatus
+    affiliation_layer_status: LayerStatus
+    organization_layer_status: LayerStatus
+    payout_layer_status: LayerStatus
+    mission_layer_status: LayerStatus
+    history_layer_status: LayerStatus
+
+    badge_identity_verified: bool
+    badge_org_verified: bool
+    badge_payout_verified: bool
+    badge_mission_verified: bool
+
     verification_status: VerificationStatus
     admin_notes: Optional[str]
+    last_reviewed_at: Optional[datetime]
+    next_review_due: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
@@ -125,8 +286,14 @@ class MissionaryPublicProfile(BaseModel):
     years_of_service: int
     calling_description: Optional[str]
     verification_status: VerificationStatus
+    affiliation_path: AffiliationPath
+    risk_tier: RiskTier
+    badge_identity_verified: bool
+    badge_org_verified: bool
+    badge_payout_verified: bool
+    badge_mission_verified: bool
     active_missions: list
-    past_projects: list[PastProjectResponse]
+    past_projects: List[PastProjectResponse]
     total_funds_deployed: Decimal
     total_people_served: int
 
@@ -141,6 +308,12 @@ class MissionCreate(BaseModel):
     description: str
     goal_amount_usd: Decimal
     target_country: str
+    location_granularity: Optional[str] = None
+    exact_location_hidden: bool = False
+    local_partners: Optional[str] = None
+    underfunding_rule: UnderfundingRule = UnderfundingRule.HOLD_UNTIL_THRESHOLD
+    overfunding_rule: OverfundingRule = OverfundingRule.EXPAND_SCOPE
+    reporting_plan: Optional[str] = None
 
 
 class MissionResponse(BaseModel):
@@ -151,6 +324,12 @@ class MissionResponse(BaseModel):
     goal_amount_usd: Decimal
     raised_amount_usd: Decimal
     target_country: str
+    location_granularity: Optional[str]
+    exact_location_hidden: bool
+    local_partners: Optional[str]
+    underfunding_rule: UnderfundingRule
+    overfunding_rule: OverfundingRule
+    reporting_plan: Optional[str]
     status: MissionStatus
     created_at: datetime
 
