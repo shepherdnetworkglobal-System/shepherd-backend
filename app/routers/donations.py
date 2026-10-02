@@ -20,7 +20,9 @@ def create_donation(
 
     donation = Donation(
         mission_id=payload.mission_id,
+        donor_name=payload.donor_name,
         donor_email=payload.donor_email,
+        progress_opt_in=payload.progress_opt_in,
         amount_usd=payload.amount_usd,
         asset_type=payload.asset_type,
         status=DonationStatus.PENDING

@@ -44,8 +44,13 @@ def run_migrations():
         "ALTER TABLE missionary_profiles ADD COLUMN IF NOT EXISTS next_review_due TIMESTAMP;",
 
         # Missions table updates
-        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS location_granularity VARCHAR(100);",
-        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS exact_location_hidden BOOLEAN DEFAULT FALSE NOT NULL;",
+        # Donations table updates
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS donor_name VARCHAR(255);",
+        "ALTER TABLE donations ALTER COLUMN donor_email DROP NOT NULL;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS progress_opt_in BOOLEAN DEFAULT FALSE NOT NULL;",
+
+        # Mission table updates
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS location_granularity VARCHAR(100);",        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS exact_location_hidden BOOLEAN DEFAULT FALSE NOT NULL;",
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS local_partners TEXT;",
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS underfunding_rule VARCHAR(50) DEFAULT 'HOLD_UNTIL_THRESHOLD' NOT NULL;",
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS overfunding_rule VARCHAR(50) DEFAULT 'EXPAND_SCOPE' NOT NULL;",

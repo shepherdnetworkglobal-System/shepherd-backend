@@ -352,7 +352,9 @@ class MissionResponse(BaseModel):
 # --- Donation & Payment Wall Schemas ---
 class DonationCreate(BaseModel):
     mission_id: int
-    donor_email: EmailStr
+    donor_name: Optional[str] = None
+    donor_email: Optional[EmailStr] = None
+    progress_opt_in: bool = False
     amount_usd: Decimal
     asset_type: str = "USDC"
 
@@ -365,7 +367,9 @@ class DonationVerify(BaseModel):
 class DonationResponse(BaseModel):
     id: int
     mission_id: int
-    donor_email: str
+    donor_name: Optional[str] = None
+    donor_email: Optional[str] = None
+    progress_opt_in: bool = False
     amount_usd: Decimal
     asset_type: str
     stellar_tx_hash: Optional[str]

@@ -325,7 +325,9 @@ class Donation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     mission_id = Column(Integer, ForeignKey("missions.id"), nullable=False)
-    donor_email = Column(String(255), nullable=False)
+    donor_name = Column(String(255), nullable=True)
+    donor_email = Column(String(255), nullable=True)
+    progress_opt_in = Column(Boolean, default=False, nullable=False)
     amount_usd = Column(Numeric(12, 2), nullable=False)
     asset_type = Column(String(10), default="USDC", nullable=False)
     stellar_tx_hash = Column(String(64), unique=True, index=True, nullable=True)
