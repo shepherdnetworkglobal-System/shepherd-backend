@@ -7,8 +7,27 @@ import httpx
 
 from app.database.session import get_db
 from app.core.config import settings
+from app.models.models import User, MissionaryProfile, Mission, Donation, Receipt, MilestoneUpdate, PastProject, UserRole
+from fastapi import HTTPException
 
 router = APIRouter(prefix="/api/platform", tags=["Product & Platform Engineering"])
+
+
+@router.post("/wipe-demo-data")
+def wipe_demo_data(db: Session = Depends(get_db)):
+    try:
+        db.query(Donation).delete()
+        db.query(Receipt).delete()
+        db.query(MilestoneUpdate).delete()
+        db.query(PastProject).delete()
+        db.query(Mission).delete()
+        db.query(MissionaryProfile).delete()
+        db.query(User).filter(User.role != UserRole.ADMIN).delete()
+        db.commit()
+        return {"status": "success", "message": "All demo data wiped. Admin user preserved."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 START_TIME = time.time()
 
