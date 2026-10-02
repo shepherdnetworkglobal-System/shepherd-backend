@@ -110,9 +110,35 @@ def add_past_project(
     return project
 
 
-@router.get("/applications", response_model=list[MissionaryProfileResponse])
+@router.get("/applications")
 def list_verification_applications(db: Session = Depends(get_db)):
-    return db.query(MissionaryProfile).order_by(MissionaryProfile.created_at.desc()).all()
+    profiles = db.query(MissionaryProfile).order_by(MissionaryProfile.created_at.desc()).all()
+    results = []
+    for profile in profiles:
+        user = db.query(User).filter(User.id == profile.user_id).first()
+        results.append({
+            "id": profile.id,
+            "user_id": profile.user_id,
+            "full_name": user.full_name if user else "Unknown Operator",
+            "email": user.email if user else None,
+            "shepherd_id": profile.shepherd_id,
+            "country": profile.country,
+            "organization_name": profile.organization_name,
+            "organization_id": profile.organization_id,
+            "profile_photo_url": profile.profile_photo_url,
+            "biography": profile.biography,
+            "years_of_service": profile.years_of_service,
+            "calling_description": profile.calling_description,
+            "verification_status": profile.verification_status.value if hasattr(profile.verification_status, "value") else str(profile.verification_status),
+            "affiliation_path": profile.affiliation_path.value if hasattr(profile.affiliation_path, "value") else str(profile.affiliation_path),
+            "risk_tier": profile.risk_tier.value if hasattr(profile.risk_tier, "value") else str(profile.risk_tier),
+            "badge_identity_verified": profile.badge_identity_verified,
+            "badge_org_verified": profile.badge_org_verified,
+            "badge_payout_verified": profile.badge_payout_verified,
+            "badge_mission_verified": profile.badge_mission_verified,
+            "created_at": profile.created_at.isoformat() if profile.created_at else None,
+        })
+    return results
 
 
 @router.get("/status/{user_id}", response_model=MissionaryProfileResponse)
