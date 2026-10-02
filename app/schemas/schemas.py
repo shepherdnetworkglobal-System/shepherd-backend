@@ -328,8 +328,6 @@ class MissionUpdate(BaseModel):
     local_partners: Optional[str] = None
 
 
-from pydantic import field_validator
-
 class MissionResponse(BaseModel):
     id: int
     missionary_id: int
@@ -346,14 +344,6 @@ class MissionResponse(BaseModel):
     reporting_plan: Optional[str] = None
     status: str = "ACTIVE"
     created_at: datetime
-
-    @field_validator("status", "underfunding_rule", "overfunding_rule", mode="before")
-    def clean_enum_string(cls, v):
-        if hasattr(v, "value"):
-            return str(v.value)
-        if isinstance(v, str) and "." in v:
-            return v.split(".")[-1]
-        return str(v) if v is not None else v
 
     class Config:
         from_attributes = True
