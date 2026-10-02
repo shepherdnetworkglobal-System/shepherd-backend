@@ -6,7 +6,35 @@ from app.models.models import Mission, MissionaryProfile, VerificationStatus
 from app.schemas.schemas import MissionCreate, MissionResponse, MissionUpdate
 from seed_demo import run_demo_seed
 
+from app.models.models import User, MissionaryProfile
+
 router = APIRouter(prefix="/api/missions", tags=["Missions"])
+
+
+@router.get("/debug")
+def debug_database_state(db: Session = Depends(get_db)):
+    try:
+        users_count = db.query(User).count()
+        profiles_count = db.query(MissionaryProfile).count()
+        missions = db.query(Mission).all()
+        return {
+            "status": "connected",
+            "users_count": users_count,
+            "profiles_count": profiles_count,
+            "missions_count": len(missions),
+            "missions": [
+                {
+                    "id": m.id,
+                    "title": m.title,
+                    "status": str(m.status),
+                    "raised": float(m.raised_amount_usd),
+                    "goal": float(m.goal_amount_usd)
+                }
+                for m in missions
+            ]
+        }
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
 
 
 import traceback
