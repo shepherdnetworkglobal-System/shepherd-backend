@@ -49,7 +49,15 @@ def run_migrations():
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS local_partners TEXT;",
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS underfunding_rule VARCHAR(50) DEFAULT 'HOLD_UNTIL_THRESHOLD' NOT NULL;",
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS overfunding_rule VARCHAR(50) DEFAULT 'EXPAND_SCOPE' NOT NULL;",
-        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS reporting_plan TEXT;"
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS reporting_plan TEXT;",
+
+        # Database Sanitization (Clean corrupted Enum prefixes in PostgreSQL)
+        "UPDATE missions SET status = 'ACTIVE' WHERE status LIKE '%ACTIVE%' OR status IS NULL;",
+        "UPDATE missions SET status = 'COMPLETED' WHERE status LIKE '%COMPLETED%';",
+        "UPDATE missions SET status = 'PAUSED' WHERE status LIKE '%PAUSED%';",
+        "UPDATE missions SET underfunding_rule = 'HOLD_UNTIL_THRESHOLD' WHERE underfunding_rule LIKE '%HOLD%' OR underfunding_rule IS NULL;",
+        "UPDATE missions SET overfunding_rule = 'EXPAND_SCOPE' WHERE overfunding_rule LIKE '%EXPAND%' OR overfunding_rule IS NULL;",
+        "UPDATE missionary_profiles SET verification_status = 'APPROVED' WHERE verification_status LIKE '%APPROVED%' OR verification_status IS NULL;"
     ]
 
     with engine.begin() as conn:
@@ -79,8 +87,20 @@ def seed_admin():
         db.close()
 
 
+from seed_demo import run_demo_seed
+
+def auto_seed():
+    db: Session = SessionLocal()
+    try:
+        run_demo_seed(db)
+    except Exception as e:
+        print(f"Auto-seed note: {e}")
+    finally:
+        db.close()
+
 run_migrations()
 seed_admin()
+auto_seed()
 
 app = FastAPI(
     title=settings.APP_NAME,

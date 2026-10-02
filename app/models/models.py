@@ -278,10 +278,10 @@ class Mission(Base):
     location_granularity = Column(String(100), nullable=True)
     exact_location_hidden = Column(Boolean, default=False, nullable=False)
     local_partners = Column(Text, nullable=True)
-    underfunding_rule = Column(Enum(UnderfundingRule), default=UnderfundingRule.HOLD_UNTIL_THRESHOLD, nullable=False)
-    overfunding_rule = Column(Enum(OverfundingRule), default=OverfundingRule.EXPAND_SCOPE, nullable=False)
+    underfunding_rule = Column(String(100), default="HOLD_UNTIL_THRESHOLD", nullable=False)
+    overfunding_rule = Column(String(100), default="EXPAND_SCOPE", nullable=False)
     reporting_plan = Column(Text, nullable=True)
-    status = Column(Enum(MissionStatus), default=MissionStatus.ACTIVE, nullable=False)
+    status = Column(String(50), default="ACTIVE", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     missionary = relationship("MissionaryProfile", back_populates="missions")

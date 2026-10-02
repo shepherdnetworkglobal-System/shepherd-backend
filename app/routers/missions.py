@@ -79,45 +79,13 @@ def create_mission(
     return mission
 
 
-@router.get("/")
+@router.get("/", response_model=List[MissionResponse])
 def list_missions(db: Session = Depends(get_db)):
     missions = db.query(Mission).all()
     if not missions:
-        try:
-            run_demo_seed(db)
-            missions = db.query(Mission).all()
-        except Exception as e:
-            print(f"Seed note: {e}")
-
-    result = []
-    for m in missions:
-        raw_status = m.status.value if hasattr(m.status, "value") else str(m.status or "ACTIVE")
-        clean_status = raw_status.replace("MissionStatus.", "")
-
-        raw_under = m.underfunding_rule.value if hasattr(m.underfunding_rule, "value") else str(m.underfunding_rule or "HOLD_UNTIL_THRESHOLD")
-        clean_under = raw_under.replace("UnderfundingRule.", "")
-
-        raw_over = m.overfunding_rule.value if hasattr(m.overfunding_rule, "value") else str(m.overfunding_rule or "EXPAND_SCOPE")
-        clean_over = raw_over.replace("OverfundingRule.", "")
-
-        result.append({
-            "id": m.id,
-            "missionary_id": m.missionary_id,
-            "title": m.title,
-            "description": m.description,
-            "goal_amount_usd": float(m.goal_amount_usd or 0),
-            "raised_amount_usd": float(m.raised_amount_usd or 0),
-            "target_country": m.target_country,
-            "location_granularity": m.location_granularity,
-            "exact_location_hidden": bool(m.exact_location_hidden),
-            "local_partners": m.local_partners,
-            "underfunding_rule": clean_under,
-            "overfunding_rule": clean_over,
-            "reporting_plan": m.reporting_plan,
-            "status": clean_status,
-            "created_at": m.created_at.isoformat() if m.created_at else None
-        })
-    return result
+        run_demo_seed(db)
+        missions = db.query(Mission).all()
+    return missions
 
 
 @router.get("/{mission_id}", response_model=MissionResponse)

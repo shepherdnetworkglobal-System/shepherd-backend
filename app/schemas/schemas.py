@@ -337,10 +337,10 @@ class MissionResponse(BaseModel):
     raised_amount_usd: Decimal
     target_country: str
     location_granularity: Optional[str] = None
-    exact_location_hidden: Optional[bool] = False
+    exact_location_hidden: bool = False
     local_partners: Optional[str] = None
-    underfunding_rule: Optional[str] = "HOLD_UNTIL_THRESHOLD"
-    overfunding_rule: Optional[str] = "EXPAND_SCOPE"
+    underfunding_rule: str = "HOLD_UNTIL_THRESHOLD"
+    overfunding_rule: str = "EXPAND_SCOPE"
     reporting_plan: Optional[str] = None
     status: str = "ACTIVE"
     created_at: datetime
