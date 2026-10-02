@@ -92,20 +92,9 @@ def seed_admin():
         db.close()
 
 
-from seed_demo import run_demo_seed
-
-def auto_seed():
-    db: Session = SessionLocal()
-    try:
-        run_demo_seed(db)
-    except Exception as e:
-        print(f"Auto-seed note: {e}")
-    finally:
-        db.close()
-
+# Demo seeder removed for production live-data mode
 run_migrations()
 seed_admin()
-auto_seed()
 
 app = FastAPI(
     title=settings.APP_NAME,
