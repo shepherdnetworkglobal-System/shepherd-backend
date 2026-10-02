@@ -81,20 +81,11 @@ def create_mission(
 
 @router.get("/", response_model=List[MissionResponse])
 def list_missions(db: Session = Depends(get_db)):
-    try:
+    missions = db.query(Mission).all()
+    if not missions:
+        run_demo_seed(db)
         missions = db.query(Mission).all()
-        if not missions:
-            run_demo_seed(db)
-            missions = db.query(Mission).all()
-        return missions
-    except Exception as e:
-        print(f"Error listing missions, re-seeding: {e}")
-        try:
-            run_demo_seed(db)
-            return db.query(Mission).all()
-        except Exception as inner_e:
-            print(f"Fallback seed error: {inner_e}")
-            return []
+    return missions
 
 
 @router.get("/{mission_id}", response_model=MissionResponse)
