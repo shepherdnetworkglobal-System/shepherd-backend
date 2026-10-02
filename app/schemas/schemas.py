@@ -179,6 +179,15 @@ class MissionaryProfileCreate(BaseModel):
     calling_description: Optional[str] = None
 
 
+class MissionaryProfileUpdate(BaseModel):
+    country: Optional[str] = None
+    organization_name: Optional[str] = None
+    profile_photo_url: Optional[str] = None
+    biography: Optional[str] = None
+    years_of_service: Optional[int] = None
+    calling_description: Optional[str] = None
+
+
 class PastProjectCreate(BaseModel):
     missionary_id: int
     title: str

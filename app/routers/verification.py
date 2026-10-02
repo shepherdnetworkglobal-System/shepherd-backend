@@ -15,6 +15,7 @@ from app.models.models import (
 )
 from app.schemas.schemas import (
     MissionaryProfileCreate,
+    MissionaryProfileUpdate,
     MissionaryDocumentUpload,
     AdminVerificationReview,
     MissionaryProfileResponse,
@@ -234,3 +235,44 @@ def get_public_missionary_profile(profile_id: int, db: Session = Depends(get_db)
         "total_funds_deployed": total_funds,
         "total_people_served": total_people
     }
+
+
+@router.put("/profile/{profile_id}", response_model=MissionaryProfileResponse)
+def update_missionary_profile(
+    profile_id: int,
+    payload: MissionaryProfileUpdate,
+    db: Session = Depends(get_db)
+):
+    profile = db.query(MissionaryProfile).filter(MissionaryProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    if payload.country is not None:
+        profile.country = payload.country
+    if payload.organization_name is not None:
+        profile.organization_name = payload.organization_name
+    if payload.profile_photo_url is not None:
+        profile.profile_photo_url = payload.profile_photo_url
+    if payload.biography is not None:
+        profile.biography = payload.biography
+    if payload.years_of_service is not None:
+        profile.years_of_service = payload.years_of_service
+    if payload.calling_description is not None:
+        profile.calling_description = payload.calling_description
+
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+@router.delete("/projects/{project_id}")
+def delete_past_project(
+    project_id: int,
+    db: Session = Depends(get_db)
+):
+    project = db.query(PastProject).filter(PastProject.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    db.delete(project)
+    db.commit()
+    return {"message": "Past project removed"}
