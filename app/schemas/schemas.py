@@ -310,6 +310,48 @@ class MissionaryPublicProfile(BaseModel):
         from_attributes = True
 
 
+# --- Coalition & Budget Line Item Schemas ---
+class MissionBudgetItemCreate(BaseModel):
+    item_name: str
+    category: str = "EQUIPMENT"
+    quantity: Decimal = Decimal("1.0")
+    unit_cost_usd: Decimal
+    notes: Optional[str] = None
+
+
+class MissionBudgetItemResponse(BaseModel):
+    id: int
+    mission_id: int
+    item_name: str
+    category: str
+    quantity: Decimal
+    unit_cost_usd: Decimal
+    total_cost_usd: Decimal
+    notes: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MissionCoalitionPartnerCreate(BaseModel):
+    organization_id: Optional[int] = None
+    missionary_id: Optional[int] = None
+    partner_role: str = "CO_SPONSOR"
+
+
+class MissionCoalitionPartnerResponse(BaseModel):
+    id: int
+    mission_id: int
+    organization_id: Optional[int]
+    missionary_id: Optional[int]
+    partner_role: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # --- Mission Schemas ---
 class MissionCreate(BaseModel):
     missionary_id: int
@@ -317,12 +359,28 @@ class MissionCreate(BaseModel):
     description: str
     goal_amount_usd: Decimal
     target_country: str
+    map_location: Optional[str] = None
     location_granularity: Optional[str] = None
     exact_location_hidden: bool = False
+    
+    # Master Brief Fields
+    problem_statement: Optional[str] = None
+    mission_objectives: Optional[str] = None
+    proposed_process: Optional[str] = None
+    before_gallery_images: Optional[str] = None
+    beneficiary_group: Optional[str] = None
+    expected_duration: Optional[str] = None
+    start_date: Optional[datetime] = None
+    expected_end_date: Optional[datetime] = None
+    estimated_total_cost: Optional[Decimal] = None
+
     local_partners: Optional[str] = None
     underfunding_rule: UnderfundingRule = UnderfundingRule.HOLD_UNTIL_THRESHOLD
     overfunding_rule: OverfundingRule = OverfundingRule.EXPAND_SCOPE
     reporting_plan: Optional[str] = None
+    
+    coalition_partners: Optional[List[MissionCoalitionPartnerCreate]] = []
+    budget_items: Optional[List[MissionBudgetItemCreate]] = []
 
 
 class MissionUpdate(BaseModel):
@@ -345,14 +403,29 @@ class MissionResponse(BaseModel):
     goal_amount_usd: Decimal
     raised_amount_usd: Decimal
     target_country: str
+    map_location: Optional[str] = None
     location_granularity: Optional[str] = None
     exact_location_hidden: bool = False
+    
+    problem_statement: Optional[str] = None
+    mission_objectives: Optional[str] = None
+    proposed_process: Optional[str] = None
+    before_gallery_images: Optional[str] = None
+    beneficiary_group: Optional[str] = None
+    expected_duration: Optional[str] = None
+    start_date: Optional[datetime] = None
+    expected_end_date: Optional[datetime] = None
+    estimated_total_cost: Optional[Decimal] = None
+
     local_partners: Optional[str] = None
     underfunding_rule: str = "HOLD_UNTIL_THRESHOLD"
     overfunding_rule: str = "EXPAND_SCOPE"
     reporting_plan: Optional[str] = None
     status: str = "ACTIVE"
     created_at: datetime
+    
+    coalition_partners: List[MissionCoalitionPartnerResponse] = []
+    budget_items: List[MissionBudgetItemResponse] = []
 
     class Config:
         from_attributes = True

@@ -107,7 +107,10 @@ class Organization(Base):
     id = Column(Integer, primary_key=True, index=True)
     official_name = Column(String(255), nullable=False)
     registry_id = Column(String(100), nullable=True)
-    entity_type = Column(String(100), nullable=True)
+    entity_type = Column(String(100), default="NGO", nullable=True) # CHURCH, NGO, MINISTRY, SPONSOR
+    country = Column(String(100), nullable=True)
+    logo_url = Column(String(500), nullable=True)
+    website = Column(String(255), nullable=True)
     official_domain = Column(String(255), nullable=True)
     official_contact_email = Column(String(255), nullable=True)
     gov_docs_url = Column(String(500), nullable=True)
@@ -275,8 +278,21 @@ class Mission(Base):
     goal_amount_usd = Column(Numeric(12, 2), nullable=False)
     raised_amount_usd = Column(Numeric(12, 2), default=0.00, nullable=False)
     target_country = Column(String(100), nullable=False)
+    map_location = Column(String(255), nullable=True)
     location_granularity = Column(String(100), nullable=True)
     exact_location_hidden = Column(Boolean, default=False, nullable=False)
+    
+    # Master Brief Fields
+    problem_statement = Column(Text, nullable=True)
+    mission_objectives = Column(Text, nullable=True)
+    proposed_process = Column(Text, nullable=True)
+    before_gallery_images = Column(Text, nullable=True)
+    beneficiary_group = Column(String(255), nullable=True)
+    expected_duration = Column(String(100), nullable=True)
+    start_date = Column(DateTime, nullable=True)
+    expected_end_date = Column(DateTime, nullable=True)
+    estimated_total_cost = Column(Numeric(12, 2), nullable=True)
+
     local_partners = Column(Text, nullable=True)
     underfunding_rule = Column(String(100), default="HOLD_UNTIL_THRESHOLD", nullable=False)
     overfunding_rule = Column(String(100), default="EXPAND_SCOPE", nullable=False)
@@ -288,6 +304,39 @@ class Mission(Base):
     donations = relationship("Donation", back_populates="mission")
     receipts = relationship("Receipt", back_populates="mission")
     updates = relationship("MilestoneUpdate", back_populates="mission")
+    coalition_partners = relationship("MissionCoalitionPartner", back_populates="mission", cascade="all, delete-orphan")
+    budget_items = relationship("MissionBudgetItem", back_populates="mission", cascade="all, delete-orphan")
+
+
+class MissionCoalitionPartner(Base):
+    __tablename__ = "mission_coalition_partners"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mission_id = Column(Integer, ForeignKey("missions.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    missionary_id = Column(Integer, ForeignKey("missionary_profiles.id"), nullable=True)
+    partner_role = Column(String(50), default="CO_SPONSOR", nullable=False) # HEAD_OF_OPERATIONS, CO_SPONSOR, COVERING_CHURCH, LOCAL_PARTNER
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    mission = relationship("Mission", back_populates="coalition_partners")
+    organization = relationship("Organization")
+    missionary = relationship("MissionaryProfile")
+
+
+class MissionBudgetItem(Base):
+    __tablename__ = "mission_budget_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mission_id = Column(Integer, ForeignKey("missions.id"), nullable=False)
+    item_name = Column(String(255), nullable=False)
+    category = Column(String(100), default="EQUIPMENT", nullable=False)
+    quantity = Column(Numeric(12, 2), default=1.0, nullable=False)
+    unit_cost_usd = Column(Numeric(12, 2), nullable=False)
+    total_cost_usd = Column(Numeric(12, 2), nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    mission = relationship("Mission", back_populates="budget_items")
 
 
 class Receipt(Base):

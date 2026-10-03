@@ -43,14 +43,29 @@ def run_migrations():
         "ALTER TABLE missionary_profiles ADD COLUMN IF NOT EXISTS last_reviewed_at TIMESTAMP;",
         "ALTER TABLE missionary_profiles ADD COLUMN IF NOT EXISTS next_review_due TIMESTAMP;",
 
-        # Missions table updates
+        # Organization table updates
+        "ALTER TABLE organizations ADD COLUMN IF NOT EXISTS country VARCHAR(100);",
+        "ALTER TABLE organizations ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);",
+        "ALTER TABLE organizations ADD COLUMN IF NOT EXISTS website VARCHAR(255);",
+
         # Donations table updates
         "ALTER TABLE donations ADD COLUMN IF NOT EXISTS donor_name VARCHAR(255);",
         "ALTER TABLE donations ALTER COLUMN donor_email DROP NOT NULL;",
         "ALTER TABLE donations ADD COLUMN IF NOT EXISTS progress_opt_in BOOLEAN DEFAULT FALSE NOT NULL;",
 
         # Mission table updates
-        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS location_granularity VARCHAR(100);",        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS exact_location_hidden BOOLEAN DEFAULT FALSE NOT NULL;",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS map_location VARCHAR(255);",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS location_granularity VARCHAR(100);",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS exact_location_hidden BOOLEAN DEFAULT FALSE NOT NULL;",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS problem_statement TEXT;",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS mission_objectives TEXT;",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS proposed_process TEXT;",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS before_gallery_images TEXT;",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS beneficiary_group VARCHAR(255);",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS expected_duration VARCHAR(100);",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS start_date TIMESTAMP;",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS expected_end_date TIMESTAMP;",
+        "ALTER TABLE missions ADD COLUMN IF NOT EXISTS estimated_total_cost NUMERIC(12,2);",
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS local_partners TEXT;",
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS underfunding_rule VARCHAR(50) DEFAULT 'HOLD_UNTIL_THRESHOLD' NOT NULL;",
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS overfunding_rule VARCHAR(50) DEFAULT 'EXPAND_SCOPE' NOT NULL;",
