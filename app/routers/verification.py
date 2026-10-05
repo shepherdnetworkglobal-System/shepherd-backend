@@ -1,6 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.database.session import get_db
 from app.models.models import (
     MissionaryProfile,
@@ -358,27 +359,50 @@ def delete_missionary_profile(profile_id: int, db: Session = Depends(get_db)):
     if not profile:
         raise HTTPException(status_code=404, detail="Missionary profile not found")
 
-    user_id = profile.user_id
-    user = db.query(User).filter(User.id == user_id).first()
-    if user and user.role == "ADMIN":
-        raise HTTPException(status_code=400, detail="Cannot delete admin user")
+    try:
+        user_id = profile.user_id
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and str(getattr(user, "role", "")).upper() == "ADMIN":
+            raise HTTPException(status_code=400, detail="Cannot delete admin user profile")
 
-    # Delete missions and related records cleanly
-    missions = db.query(Mission).filter(Mission.missionary_id == profile_id).all()
-    for m in missions:
-        db.query(Donation).filter(Donation.mission_id == m.id).delete()
-        db.query(Receipt).filter(Receipt.mission_id == m.id).delete()
-        db.query(MilestoneUpdate).filter(MilestoneUpdate.mission_id == m.id).delete()
-        db.delete(m)
+        # Safely remove all child items using SQL text to bypass SQLAlchemy session conflicts
+        missions = db.query(Mission).filter(Mission.missionary_id == profile_id).all()
+        for m in missions:
+            db.execute(text("DELETE FROM donations WHERE mission_id = :mid"), {"mid": m.id})
+            db.execute(text("DELETE FROM receipts WHERE mission_id = :mid"), {"mid": m.id})
+            db.execute(text("DELETE FROM milestone_updates WHERE mission_id = :mid"), {"mid": m.id})
+            try:
+                db.execute(text("DELETE FROM mission_coalition_partners WHERE mission_id = :mid"), {"mid": m.id})
+                db.execute(text("DELETE FROM mission_budget_items WHERE mission_id = :mid"), {"mid": m.id})
+            except Exception:
+                pass
+            db.execute(text("DELETE FROM missions WHERE id = :mid"), {"mid": m.id})
 
-    db.query(PastProject).filter(PastProject.missionary_id == profile_id).delete()
-    db.delete(profile)
+        db.execute(text("DELETE FROM past_projects WHERE missionary_id = :pid"), {"pid": profile_id})
 
-    if user and user.role != "ADMIN":
-        db.delete(user)
+        try:
+            db.execute(text("DELETE FROM missionary_references WHERE missionary_id = :pid"), {"pid": profile_id})
+            db.execute(text("DELETE FROM payout_destinations WHERE missionary_id = :pid"), {"pid": profile_id})
+            db.execute(text("DELETE FROM verification_cases WHERE missionary_id = :pid"), {"pid": profile_id})
+            db.execute(text("DELETE FROM risk_screenings WHERE missionary_id = :pid"), {"pid": profile_id})
+            db.execute(text("DELETE FROM mission_coalition_partners WHERE missionary_id = :pid"), {"pid": profile_id})
+        except Exception:
+            pass
 
-    db.commit()
-    return {"status": "success", "message": f"Missionary #{profile_id} deleted."}
+        db.execute(text("DELETE FROM missionary_profiles WHERE id = :pid"), {"pid": profile_id})
+
+        if user and str(getattr(user, "role", "")).upper() != "ADMIN":
+            db.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": user_id})
+
+        db.commit()
+        return {"status": "success", "message": f"Missionary #{profile_id} removed cleanly."}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Error purging missionary #{profile_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database deletion error: {str(e)}")
 
 
 @router.delete("/projects/{project_id}")
