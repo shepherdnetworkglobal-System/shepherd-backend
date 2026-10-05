@@ -102,6 +102,7 @@ def debug_database_state(db: Session = Depends(get_db)):
         return {"status": "error", "detail": str(e), "traceback": traceback.format_exc()}
 
 
+@router.post("")
 @router.post("/")
 def create_mission(
     payload: MissionCreate,
@@ -149,6 +150,7 @@ def create_mission(
     return _serialize_mission(mission)
 
 
+@router.get("")
 @router.get("/")
 def list_missions(db: Session = Depends(get_db)):
     missions = db.query(Mission).order_by(Mission.created_at.desc()).all()

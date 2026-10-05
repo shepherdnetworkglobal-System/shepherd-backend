@@ -136,11 +136,15 @@ def seed_admin():
 run_migrations()
 seed_admin()
 
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
 app = FastAPI(
     title=settings.APP_NAME,
-    version="1.0.0"
+    version="1.0.0",
+    redirect_slashes=False
 )
 
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
