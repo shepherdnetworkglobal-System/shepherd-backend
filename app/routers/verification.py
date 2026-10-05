@@ -285,6 +285,8 @@ def update_missionary_profile(
         profile.years_of_service = payload.years_of_service
     if payload.calling_description is not None:
         profile.calling_description = payload.calling_description
+    if payload.stellar_payout_address is not None:
+        profile.stellar_payout_address = payload.stellar_payout_address
 
     db.commit()
     db.refresh(profile)

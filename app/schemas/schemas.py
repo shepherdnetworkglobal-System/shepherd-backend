@@ -186,6 +186,7 @@ class MissionaryProfileUpdate(BaseModel):
     biography: Optional[str] = None
     years_of_service: Optional[int] = None
     calling_description: Optional[str] = None
+    stellar_payout_address: Optional[str] = None
 
 
 class PastProjectCreate(BaseModel):
