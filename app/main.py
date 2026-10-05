@@ -71,6 +71,31 @@ def run_migrations():
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS overfunding_rule VARCHAR(50) DEFAULT 'EXPAND_SCOPE' NOT NULL;",
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS reporting_plan TEXT;",
 
+        # Coalition & Budget Tables Safeguard
+        """
+        CREATE TABLE IF NOT EXISTS mission_coalition_partners (
+            id SERIAL PRIMARY KEY,
+            mission_id INTEGER NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+            organization_id INTEGER REFERENCES organizations(id) ON DELETE SET NULL,
+            missionary_id INTEGER REFERENCES missionary_profiles(id) ON DELETE SET NULL,
+            partner_role VARCHAR(50) DEFAULT 'CO_SPONSOR' NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS mission_budget_items (
+            id SERIAL PRIMARY KEY,
+            mission_id INTEGER NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+            item_name VARCHAR(255) NOT NULL,
+            category VARCHAR(100) DEFAULT 'EQUIPMENT' NOT NULL,
+            quantity NUMERIC(12, 2) DEFAULT 1.0 NOT NULL,
+            unit_cost_usd NUMERIC(12, 2) NOT NULL,
+            total_cost_usd NUMERIC(12, 2) NOT NULL,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+
         # Database Sanitization (Clean corrupted Enum prefixes in PostgreSQL)
         "UPDATE missions SET status = 'ACTIVE' WHERE status LIKE '%ACTIVE%' OR status IS NULL;",
         "UPDATE missions SET status = 'COMPLETED' WHERE status LIKE '%COMPLETED%';",

@@ -365,18 +365,23 @@ def delete_missionary_profile(profile_id: int, db: Session = Depends(get_db)):
         if user and str(getattr(user, "role", "")).upper() == "ADMIN":
             raise HTTPException(status_code=400, detail="Cannot delete admin user profile")
 
-        # Safely remove all child items using SQL text to bypass SQLAlchemy session conflicts
-        missions = db.query(Mission).filter(Mission.missionary_id == profile_id).all()
-        for m in missions:
-            db.execute(text("DELETE FROM donations WHERE mission_id = :mid"), {"mid": m.id})
-            db.execute(text("DELETE FROM receipts WHERE mission_id = :mid"), {"mid": m.id})
-            db.execute(text("DELETE FROM milestone_updates WHERE mission_id = :mid"), {"mid": m.id})
+        # Fetch mission IDs via raw SQL so schema changes on 'missions' don't crash
+        mission_rows = db.execute(
+            text("SELECT id FROM missions WHERE missionary_id = :pid"),
+            {"pid": profile_id}
+        ).fetchall()
+        mission_ids = [r[0] for r in mission_rows]
+
+        for mid in mission_ids:
+            db.execute(text("DELETE FROM donations WHERE mission_id = :mid"), {"mid": mid})
+            db.execute(text("DELETE FROM receipts WHERE mission_id = :mid"), {"mid": mid})
+            db.execute(text("DELETE FROM milestone_updates WHERE mission_id = :mid"), {"mid": mid})
             try:
-                db.execute(text("DELETE FROM mission_coalition_partners WHERE mission_id = :mid"), {"mid": m.id})
-                db.execute(text("DELETE FROM mission_budget_items WHERE mission_id = :mid"), {"mid": m.id})
+                db.execute(text("DELETE FROM mission_coalition_partners WHERE mission_id = :mid"), {"mid": mid})
+                db.execute(text("DELETE FROM mission_budget_items WHERE mission_id = :mid"), {"mid": mid})
             except Exception:
                 pass
-            db.execute(text("DELETE FROM missions WHERE id = :mid"), {"mid": m.id})
+            db.execute(text("DELETE FROM missions WHERE id = :mid"), {"mid": mid})
 
         db.execute(text("DELETE FROM past_projects WHERE missionary_id = :pid"), {"pid": profile_id})
 
