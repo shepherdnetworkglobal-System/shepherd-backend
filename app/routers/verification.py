@@ -11,7 +11,16 @@ from app.models.models import (
     Donation,
     DonationStatus,
     AffiliationPath,
-    LayerStatus
+    LayerStatus,
+    Receipt,
+    MilestoneUpdate,
+    MissionCoalitionPartner,
+    MissionBudgetItem,
+    MissionaryReference,
+    PayoutDestination,
+    VerificationCase,
+    RiskScreening,
+    UserRole,
 )
 from app.schemas.schemas import (
     MissionaryProfileCreate,
@@ -354,3 +363,49 @@ def delete_past_project(
     db.delete(project)
     db.commit()
     return {"message": "Past project removed"}
+
+@router.delete("/profile/{profile_id}")
+def delete_missionary_profile(profile_id: int, db: Session = Depends(get_db)):
+    profile = db.query(MissionaryProfile).filter(MissionaryProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Missionary profile not found")
+
+    user_id = profile.user_id
+
+    # Block deleting the system admin user if somehow linked
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.role == UserRole.ADMIN:
+        raise HTTPException(status_code=400, detail="Cannot delete admin user profile")
+
+    # Delete mission children first
+    missions = db.query(Mission).filter(Mission.missionary_id == profile_id).all()
+    for mission in missions:
+        db.query(Donation).filter(Donation.mission_id == mission.id).delete(synchronize_session=False)
+        db.query(Receipt).filter(Receipt.mission_id == mission.id).delete(synchronize_session=False)
+        db.query(MilestoneUpdate).filter(MilestoneUpdate.mission_id == mission.id).delete(synchronize_session=False)
+        try:
+            db.query(MissionCoalitionPartner).filter(MissionCoalitionPartner.mission_id == mission.id).delete(synchronize_session=False)
+            db.query(MissionBudgetItem).filter(MissionBudgetItem.mission_id == mission.id).delete(synchronize_session=False)
+        except Exception:
+            pass
+        db.delete(mission)
+
+    db.query(PastProject).filter(PastProject.missionary_id == profile_id).delete(synchronize_session=False)
+    db.query(MissionaryReference).filter(MissionaryReference.missionary_id == profile_id).delete(synchronize_session=False)
+    db.query(PayoutDestination).filter(PayoutDestination.missionary_id == profile_id).delete(synchronize_session=False)
+    db.query(VerificationCase).filter(VerificationCase.missionary_id == profile_id).delete(synchronize_session=False)
+    db.query(RiskScreening).filter(RiskScreening.missionary_id == profile_id).delete(synchronize_session=False)
+
+    try:
+        db.query(MissionCoalitionPartner).filter(MissionCoalitionPartner.missionary_id == profile_id).delete(synchronize_session=False)
+    except Exception:
+        pass
+
+    db.delete(profile)
+
+    # Remove missionary user account if not admin
+    if user and user.role != UserRole.ADMIN:
+        db.delete(user)
+
+    db.commit()
+    return {"status": "success", "message": f"Missionary profile #{profile_id} and related records removed"}

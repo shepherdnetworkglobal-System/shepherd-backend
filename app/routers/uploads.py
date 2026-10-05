@@ -46,16 +46,22 @@ async def upload_file(file: UploadFile = File(...), folder: Optional[str] = Form
 
     if has_cloudinary:
         try:
+            # PDFs/docs must use resource_type=raw or Cloudinary returns ACL/401 on /image/upload URLs
+            resource_type = "raw" if ext == ".pdf" else "image"
             upload_result = cloudinary.uploader.upload(
                 content,
                 folder=f"shepherd_network/{folder}",
-                resource_type="auto"
+                resource_type=resource_type,
+                type="upload",
+                access_mode="public",
             )
             return {
                 "filename": file.filename,
                 "url": upload_result.get("secure_url"),
+                "public_id": upload_result.get("public_id"),
+                "resource_type": resource_type,
                 "size_bytes": len(content),
-                "provider": "cloudinary"
+                "provider": "cloudinary",
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Cloudinary upload failed: {str(e)}")
