@@ -108,46 +108,57 @@ def create_mission(
     payload: MissionCreate,
     db: Session = Depends(get_db)
 ):
-    profile = db.query(MissionaryProfile).filter(MissionaryProfile.id == payload.missionary_id).first()
-    if not profile:
-        raise HTTPException(status_code=404, detail="Missionary profile not found")
+    try:
+        profile = db.query(MissionaryProfile).filter(MissionaryProfile.id == payload.missionary_id).first()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Missionary profile not found")
 
-    profile_status = str(getattr(profile.verification_status, "value", profile.verification_status) or "").upper()
-    if profile_status != "APPROVED":
-        raise HTTPException(
-            status_code=403,
-            detail="Missionary must be APPROVED before launching a public mission"
+        profile_status = str(getattr(profile.verification_status, "value", profile.verification_status) or "").upper()
+        if profile_status != "APPROVED":
+            raise HTTPException(
+                status_code=403,
+                detail="Missionary must be APPROVED before launching a public mission"
+            )
+
+        underfunding = payload.underfunding_rule.value if hasattr(payload.underfunding_rule, "value") else str(payload.underfunding_rule)
+        overfunding = payload.overfunding_rule.value if hasattr(payload.overfunding_rule, "value") else str(payload.overfunding_rule)
+
+        mission = Mission(
+            missionary_id=payload.missionary_id,
+            title=payload.title,
+            description=payload.description,
+            goal_amount_usd=payload.goal_amount_usd,
+            target_country=payload.target_country,
+            map_location=payload.map_location,
+            location_granularity=payload.location_granularity,
+            exact_location_hidden=payload.exact_location_hidden,
+            problem_statement=payload.problem_statement,
+            mission_objectives=payload.mission_objectives,
+            proposed_process=payload.proposed_process,
+            before_gallery_images=payload.before_gallery_images,
+            beneficiary_group=payload.beneficiary_group,
+            expected_duration=payload.expected_duration,
+            start_date=payload.start_date,
+            expected_end_date=payload.expected_end_date,
+            estimated_total_cost=payload.estimated_total_cost,
+            local_partners=payload.local_partners,
+            underfunding_rule=underfunding,
+            overfunding_rule=overfunding,
+            reporting_plan=payload.reporting_plan,
+            status="ACTIVE"
         )
 
-    mission = Mission(
-        missionary_id=payload.missionary_id,
-        title=payload.title,
-        description=payload.description,
-        goal_amount_usd=payload.goal_amount_usd,
-        target_country=payload.target_country,
-        map_location=payload.map_location,
-        location_granularity=payload.location_granularity,
-        exact_location_hidden=payload.exact_location_hidden,
-        problem_statement=payload.problem_statement,
-        mission_objectives=payload.mission_objectives,
-        proposed_process=payload.proposed_process,
-        before_gallery_images=payload.before_gallery_images,
-        beneficiary_group=payload.beneficiary_group,
-        expected_duration=payload.expected_duration,
-        start_date=payload.start_date,
-        expected_end_date=payload.expected_end_date,
-        estimated_total_cost=payload.estimated_total_cost,
-        local_partners=payload.local_partners,
-        underfunding_rule=getattr(payload.underfunding_rule, "value", str(payload.underfunding_rule)),
-        overfunding_rule=getattr(payload.overfunding_rule, "value", str(payload.overfunding_rule)),
-        reporting_plan=payload.reporting_plan,
-        status="ACTIVE"
-    )
-
-    db.add(mission)
-    db.commit()
-    db.refresh(mission)
-    return _serialize_mission(mission)
+        db.add(mission)
+        db.commit()
+        db.refresh(mission)
+        return _serialize_mission(mission)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        print("CREATE MISSION ERROR:\n", traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
 @router.get("")

@@ -105,12 +105,12 @@ def run_migrations():
         "UPDATE missionary_profiles SET verification_status = 'APPROVED' WHERE verification_status LIKE '%APPROVED%' OR verification_status IS NULL;"
     ]
 
-    with engine.begin() as conn:
-        for stmt in migration_statements:
+    for stmt in migration_statements:
+        with engine.begin() as conn:
             try:
                 conn.execute(text(stmt))
             except Exception as e:
-                print(f"Migration note ({stmt}): {e}")
+                print(f"Migration note ({stmt[:40]}...): {e}")
 
 
 def seed_admin():
