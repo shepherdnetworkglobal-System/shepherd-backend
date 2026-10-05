@@ -352,6 +352,35 @@ def update_missionary_profile(
     return profile
 
 
+@router.delete("/profile/{profile_id}")
+def delete_missionary_profile(profile_id: int, db: Session = Depends(get_db)):
+    profile = db.query(MissionaryProfile).filter(MissionaryProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Missionary profile not found")
+
+    user_id = profile.user_id
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.role == "ADMIN":
+        raise HTTPException(status_code=400, detail="Cannot delete admin user")
+
+    # Delete missions and related records cleanly
+    missions = db.query(Mission).filter(Mission.missionary_id == profile_id).all()
+    for m in missions:
+        db.query(Donation).filter(Donation.mission_id == m.id).delete()
+        db.query(Receipt).filter(Receipt.mission_id == m.id).delete()
+        db.query(MilestoneUpdate).filter(MilestoneUpdate.mission_id == m.id).delete()
+        db.delete(m)
+
+    db.query(PastProject).filter(PastProject.missionary_id == profile_id).delete()
+    db.delete(profile)
+
+    if user and user.role != "ADMIN":
+        db.delete(user)
+
+    db.commit()
+    return {"status": "success", "message": f"Missionary #{profile_id} deleted."}
+
+
 @router.delete("/projects/{project_id}")
 def delete_past_project(
     project_id: int,
