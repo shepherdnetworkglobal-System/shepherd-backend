@@ -53,6 +53,11 @@ def run_migrations():
         "ALTER TABLE donations ALTER COLUMN donor_email DROP NOT NULL;",
         "ALTER TABLE donations ADD COLUMN IF NOT EXISTS progress_opt_in BOOLEAN DEFAULT FALSE NOT NULL;",
 
+        # Convert legacy PostgreSQL native Enum columns to standard VARCHAR
+        "ALTER TABLE missions ALTER COLUMN status TYPE VARCHAR(50) USING status::text;",
+        "ALTER TABLE missions ALTER COLUMN underfunding_rule TYPE VARCHAR(100) USING underfunding_rule::text;",
+        "ALTER TABLE missions ALTER COLUMN overfunding_rule TYPE VARCHAR(100) USING overfunding_rule::text;",
+
         # Mission table updates
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS map_location VARCHAR(255);",
         "ALTER TABLE missions ADD COLUMN IF NOT EXISTS location_granularity VARCHAR(100);",
