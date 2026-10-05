@@ -255,45 +255,65 @@ def get_public_missionary_profile(profile_id: int, db: Session = Depends(get_db)
     profile = db.query(MissionaryProfile).filter(MissionaryProfile.id == profile_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Missionary not found")
-    if profile.verification_status != VerificationStatus.APPROVED:
-        raise HTTPException(status_code=403, detail="Profile not yet public")
+
+    status_str = str(getattr(profile.verification_status, "value", profile.verification_status) or "").upper()
+    if status_str != "APPROVED":
+        raise HTTPException(status_code=403, detail=f"Profile not yet public (status={status_str or 'UNKNOWN'})")
 
     user = db.query(User).filter(User.id == profile.user_id).first()
     active_missions = db.query(Mission).filter(Mission.missionary_id == profile_id).all()
     past_projects = db.query(PastProject).filter(PastProject.missionary_id == profile_id).all()
 
-    donations = db.query(Donation).join(Mission).filter(
-        Mission.missionary_id == profile_id,
-        Donation.status == DonationStatus.CONFIRMED_ONCHAIN
-    ).all()
-    total_funds = sum([float(d.amount_usd) for d in donations])
-    total_people = sum([p.people_impacted for p in past_projects])
+    # Donation status may be enum or varchar — compare as text
+    donations = []
+    try:
+        all_donations = (
+            db.query(Donation)
+            .join(Mission, Donation.mission_id == Mission.id)
+            .filter(Mission.missionary_id == profile_id)
+            .all()
+        )
+        for d in all_donations:
+            d_status = str(getattr(d.status, "value", d.status) or "").upper()
+            if d_status in ("CONFIRMED_ONCHAIN", "CONFIRMED", "SETTLED"):
+                donations.append(d)
+    except Exception as e:
+        print(f"Public profile donations note: {e}")
+        donations = []
+
+    total_funds = sum([float(d.amount_usd or 0) for d in donations])
+    total_people = sum([int(p.people_impacted or 0) for p in past_projects])
+
+    def _s(val, default=""):
+        if val is None:
+            return default
+        return str(getattr(val, "value", val))
 
     return {
         "id": profile.id,
         "shepherd_id": profile.shepherd_id,
-        "full_name": user.full_name if user else "Unknown",
+        "full_name": user.full_name if user else "Unknown Operator",
         "country": profile.country,
         "organization_name": profile.organization_name,
         "profile_photo_url": profile.profile_photo_url,
         "biography": profile.biography,
-        "years_of_service": profile.years_of_service,
+        "years_of_service": int(profile.years_of_service or 0),
         "calling_description": profile.calling_description,
-        "verification_status": profile.verification_status.value,
-        "affiliation_path": profile.affiliation_path.value,
-        "risk_tier": profile.risk_tier.value,
-        "badge_identity_verified": profile.badge_identity_verified,
-        "badge_org_verified": profile.badge_org_verified,
-        "badge_payout_verified": profile.badge_payout_verified,
-        "badge_mission_verified": profile.badge_mission_verified,
+        "verification_status": status_str,
+        "affiliation_path": _s(profile.affiliation_path, "INDEPENDENT"),
+        "risk_tier": _s(profile.risk_tier, "STANDARD"),
+        "badge_identity_verified": bool(profile.badge_identity_verified),
+        "badge_org_verified": bool(profile.badge_org_verified),
+        "badge_payout_verified": bool(profile.badge_payout_verified),
+        "badge_mission_verified": bool(profile.badge_mission_verified),
         "active_missions": [
             {
                 "id": m.id,
                 "title": m.title,
-                "goal_amount_usd": float(m.goal_amount_usd),
-                "raised_amount_usd": float(m.raised_amount_usd),
-                "status": m.status.value,
-                "target_country": m.target_country
+                "goal_amount_usd": float(m.goal_amount_usd or 0),
+                "raised_amount_usd": float(m.raised_amount_usd or 0),
+                "status": _s(m.status, "ACTIVE"),
+                "target_country": m.target_country,
             }
             for m in active_missions
         ],
@@ -304,13 +324,13 @@ def get_public_missionary_profile(profile_id: int, db: Session = Depends(get_db)
                 "description": p.description,
                 "location": p.location,
                 "year_completed": p.year_completed,
-                "people_impacted": p.people_impacted,
-                "media_urls": p.media_urls
+                "people_impacted": int(p.people_impacted or 0),
+                "media_urls": p.media_urls or "",
             }
             for p in past_projects
         ],
         "total_funds_deployed": total_funds,
-        "total_people_served": total_people
+        "total_people_served": total_people,
     }
 
 
