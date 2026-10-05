@@ -46,24 +46,32 @@ async def upload_file(file: UploadFile = File(...), folder: Optional[str] = Form
 
     if has_cloudinary:
         try:
-            resource_type = "raw" if ext in [".pdf", ".doc", ".docx"] else "image"
             file_uuid = uuid.uuid4().hex
-            # Preserve extension in public_id so Cloudinary generates URLs ending with .pdf
-            public_id_with_ext = f"{file_uuid}{ext}"
 
-            upload_result = cloudinary.uploader.upload(
-                content,
-                folder=f"shepherd_network/{folder}",
-                public_id=public_id_with_ext,
-                resource_type=resource_type,
-                type="upload",
-                access_mode="public",
-            )
+            if ext == ".pdf":
+                # Upload PDF page 1 as an image asset to bypass raw ACL restrictions & render inline
+                upload_result = cloudinary.uploader.upload(
+                    content,
+                    folder=f"shepherd_network/{folder}",
+                    public_id=file_uuid,
+                    resource_type="image",
+                    format="jpg",
+                    type="upload"
+                )
+            else:
+                upload_result = cloudinary.uploader.upload(
+                    content,
+                    folder=f"shepherd_network/{folder}",
+                    public_id=file_uuid,
+                    resource_type="image",
+                    type="upload"
+                )
+
             return {
                 "filename": file.filename,
                 "url": upload_result.get("secure_url"),
                 "public_id": upload_result.get("public_id"),
-                "resource_type": resource_type,
+                "resource_type": "image",
                 "size_bytes": len(content),
                 "provider": "cloudinary",
             }
