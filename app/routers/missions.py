@@ -1,14 +1,88 @@
-from typing import List
+from typing import List, Optional
+import traceback
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.database.session import get_db
-from app.models.models import Mission, MissionaryProfile, VerificationStatus
-from app.schemas.schemas import MissionCreate, MissionResponse, MissionUpdate
-from seed_demo import run_demo_seed
+from sqlalchemy import text
 
-from app.models.models import User, MissionaryProfile
+from app.database.session import get_db
+from app.models.models import Mission, MissionaryProfile, User
+from app.schemas.schemas import MissionCreate, MissionUpdate
 
 router = APIRouter(prefix="/api/missions", tags=["Missions"])
+
+
+def _serialize_mission(m: Mission) -> dict:
+    """Safely convert SQLAlchemy Mission model to dict without Pydantic serialization crashes."""
+    status_str = str(getattr(m.status, "value", m.status) or "ACTIVE").upper()
+    underfunding_str = str(getattr(m.underfunding_rule, "value", m.underfunding_rule) or "HOLD_UNTIL_THRESHOLD").upper()
+    overfunding_str = str(getattr(m.overfunding_rule, "value", m.overfunding_rule) or "EXPAND_SCOPE").upper()
+
+    coalition = []
+    try:
+        if hasattr(m, "coalition_partners") and m.coalition_partners:
+            coalition = [
+                {
+                    "id": c.id,
+                    "mission_id": c.mission_id,
+                    "organization_id": c.organization_id,
+                    "missionary_id": c.missionary_id,
+                    "partner_role": str(c.partner_role),
+                    "created_at": c.created_at.isoformat() if c.created_at else None
+                }
+                for c in m.coalition_partners
+            ]
+    except Exception:
+        coalition = []
+
+    budget = []
+    try:
+        if hasattr(m, "budget_items") and m.budget_items:
+            budget = [
+                {
+                    "id": b.id,
+                    "mission_id": b.mission_id,
+                    "item_name": b.item_name,
+                    "category": str(b.category),
+                    "quantity": float(b.quantity),
+                    "unit_cost_usd": float(b.unit_cost_usd),
+                    "total_cost_usd": float(b.total_cost_usd),
+                    "notes": b.notes,
+                    "created_at": b.created_at.isoformat() if b.created_at else None
+                }
+                for b in m.budget_items
+            ]
+    except Exception:
+        budget = []
+
+    return {
+        "id": m.id,
+        "missionary_id": m.missionary_id,
+        "title": m.title,
+        "description": m.description,
+        "goal_amount_usd": float(m.goal_amount_usd or 0.0),
+        "raised_amount_usd": float(m.raised_amount_usd or 0.0),
+        "target_country": m.target_country,
+        "map_location": m.map_location,
+        "location_granularity": m.location_granularity,
+        "exact_location_hidden": bool(m.exact_location_hidden),
+        "problem_statement": m.problem_statement,
+        "mission_objectives": m.mission_objectives,
+        "proposed_process": m.proposed_process,
+        "before_gallery_images": m.before_gallery_images,
+        "beneficiary_group": m.beneficiary_group,
+        "expected_duration": m.expected_duration,
+        "start_date": m.start_date.isoformat() if m.start_date else None,
+        "expected_end_date": m.expected_end_date.isoformat() if m.expected_end_date else None,
+        "estimated_total_cost": float(m.estimated_total_cost) if m.estimated_total_cost else None,
+        "local_partners": m.local_partners,
+        "underfunding_rule": underfunding_str,
+        "overfunding_rule": overfunding_str,
+        "reporting_plan": m.reporting_plan,
+        "status": status_str,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+        "coalition_partners": coalition,
+        "budget_items": budget
+    }
 
 
 @router.get("/debug")
@@ -22,36 +96,13 @@ def debug_database_state(db: Session = Depends(get_db)):
             "users_count": users_count,
             "profiles_count": profiles_count,
             "missions_count": len(missions),
-            "missions": [
-                {
-                    "id": m.id,
-                    "title": m.title,
-                    "status": str(m.status),
-                    "raised": float(m.raised_amount_usd),
-                    "goal": float(m.goal_amount_usd)
-                }
-                for m in missions
-            ]
+            "missions": [_serialize_mission(m) for m in missions]
         }
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        return {"status": "error", "detail": str(e), "traceback": traceback.format_exc()}
 
 
-import traceback
-
-@router.post("/seed")
-@router.get("/seed")
-def seed_demo_data(db: Session = Depends(get_db)):
-    try:
-        run_demo_seed(db)
-        missions_count = db.query(Mission).count()
-        return {"status": "success", "message": "Demo missions seeded successfully", "total_missions": missions_count}
-    except Exception as e:
-        print("SEED ERROR TRACEBACK:\n", traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Seed error: {str(e)}")
-
-
-@router.post("/", response_model=MissionResponse)
+@router.post("/")
 def create_mission(
     payload: MissionCreate,
     db: Session = Depends(get_db)
@@ -60,7 +111,8 @@ def create_mission(
     if not profile:
         raise HTTPException(status_code=404, detail="Missionary profile not found")
 
-    if profile.verification_status != VerificationStatus.APPROVED:
+    profile_status = str(getattr(profile.verification_status, "value", profile.verification_status) or "").upper()
+    if profile_status != "APPROVED":
         raise HTTPException(
             status_code=403,
             detail="Missionary must be APPROVED before launching a public mission"
@@ -71,32 +123,47 @@ def create_mission(
         title=payload.title,
         description=payload.description,
         goal_amount_usd=payload.goal_amount_usd,
-        target_country=payload.target_country
+        target_country=payload.target_country,
+        map_location=payload.map_location,
+        location_granularity=payload.location_granularity,
+        exact_location_hidden=payload.exact_location_hidden,
+        problem_statement=payload.problem_statement,
+        mission_objectives=payload.mission_objectives,
+        proposed_process=payload.proposed_process,
+        before_gallery_images=payload.before_gallery_images,
+        beneficiary_group=payload.beneficiary_group,
+        expected_duration=payload.expected_duration,
+        start_date=payload.start_date,
+        expected_end_date=payload.expected_end_date,
+        estimated_total_cost=payload.estimated_total_cost,
+        local_partners=payload.local_partners,
+        underfunding_rule=getattr(payload.underfunding_rule, "value", str(payload.underfunding_rule)),
+        overfunding_rule=getattr(payload.overfunding_rule, "value", str(payload.overfunding_rule)),
+        reporting_plan=payload.reporting_plan,
+        status="ACTIVE"
     )
+
     db.add(mission)
     db.commit()
     db.refresh(mission)
-    return mission
+    return _serialize_mission(mission)
 
 
-@router.get("/", response_model=List[MissionResponse])
+@router.get("/")
 def list_missions(db: Session = Depends(get_db)):
-    missions = db.query(Mission).all()
-    if not missions:
-        run_demo_seed(db)
-        missions = db.query(Mission).all()
-    return missions
+    missions = db.query(Mission).order_by(Mission.created_at.desc()).all()
+    return [_serialize_mission(m) for m in missions]
 
 
-@router.get("/{mission_id}", response_model=MissionResponse)
+@router.get("/{mission_id}")
 def get_mission(mission_id: int, db: Session = Depends(get_db)):
     mission = db.query(Mission).filter(Mission.id == mission_id).first()
     if not mission:
         raise HTTPException(status_code=404, detail="Mission not found")
-    return mission
+    return _serialize_mission(mission)
 
 
-@router.put("/{mission_id}", response_model=MissionResponse)
+@router.put("/{mission_id}")
 def update_mission(
     mission_id: int,
     payload: MissionUpdate,
@@ -111,11 +178,11 @@ def update_mission(
     if payload.description is not None:
         mission.description = payload.description
     if payload.status is not None:
-        mission.status = payload.status
+        mission.status = getattr(payload.status, "value", str(payload.status))
     if payload.underfunding_rule is not None:
-        mission.underfunding_rule = payload.underfunding_rule
+        mission.underfunding_rule = getattr(payload.underfunding_rule, "value", str(payload.underfunding_rule))
     if payload.overfunding_rule is not None:
-        mission.overfunding_rule = payload.overfunding_rule
+        mission.overfunding_rule = getattr(payload.overfunding_rule, "value", str(payload.overfunding_rule))
     if payload.exact_location_hidden is not None:
         mission.exact_location_hidden = payload.exact_location_hidden
     if payload.location_granularity is not None:
@@ -127,4 +194,4 @@ def update_mission(
 
     db.commit()
     db.refresh(mission)
-    return mission
+    return _serialize_mission(mission)
