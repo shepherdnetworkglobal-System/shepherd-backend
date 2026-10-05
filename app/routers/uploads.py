@@ -46,11 +46,15 @@ async def upload_file(file: UploadFile = File(...), folder: Optional[str] = Form
 
     if has_cloudinary:
         try:
-            # PDFs/docs must use resource_type=raw or Cloudinary returns ACL/401 on /image/upload URLs
-            resource_type = "raw" if ext == ".pdf" else "image"
+            resource_type = "raw" if ext in [".pdf", ".doc", ".docx"] else "image"
+            file_uuid = uuid.uuid4().hex
+            # Preserve extension in public_id so Cloudinary generates URLs ending with .pdf
+            public_id_with_ext = f"{file_uuid}{ext}"
+
             upload_result = cloudinary.uploader.upload(
                 content,
                 folder=f"shepherd_network/{folder}",
+                public_id=public_id_with_ext,
                 resource_type=resource_type,
                 type="upload",
                 access_mode="public",
