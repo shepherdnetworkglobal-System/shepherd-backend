@@ -80,7 +80,10 @@ def upload_documents(
         profile.proof_of_address_url = docs.proof_of_address_url
         profile.address_layer_status = LayerStatus.PENDING
 
-    profile.verification_status = VerificationStatus.UNDER_REVIEW
+    # Do not force status backwards if already APPROVED
+    if profile.verification_status not in [VerificationStatus.APPROVED, VerificationStatus.REJECTED]:
+        profile.verification_status = VerificationStatus.UNDER_REVIEW
+
     db.commit()
     db.refresh(profile)
     return profile
@@ -110,6 +113,20 @@ def add_past_project(
     return project
 
 
+def _generate_shepherd_id(full_name: str, country: str, profile_id: int) -> str:
+    """Build a stable human-readable Shepherd ID, e.g. JOE-KENYA-1003."""
+    name_part = "".join([c for c in (full_name or "OP").upper() if c.isalnum() or c == " "])
+    tokens = [t for t in name_part.split() if t]
+    if not tokens:
+        code = "OP"
+    elif len(tokens) == 1:
+        code = tokens[0][:6]
+    else:
+        code = (tokens[0][:3] + tokens[-1][:3]).upper()
+    country_part = "".join([c for c in (country or "XX").upper() if c.isalpha()])[:8] or "XX"
+    return f"{code}-{country_part}-{1000 + int(profile_id)}"
+
+
 @router.get("/applications")
 def list_verification_applications(db: Session = Depends(get_db)):
     profiles = db.query(MissionaryProfile).order_by(MissionaryProfile.created_at.desc()).all()
@@ -129,13 +146,27 @@ def list_verification_applications(db: Session = Depends(get_db)):
             "biography": profile.biography,
             "years_of_service": profile.years_of_service,
             "calling_description": profile.calling_description,
+            "stellar_payout_address": profile.stellar_payout_address,
+            "mpesa_phone_number": profile.mpesa_phone_number,
+            "government_id_url": profile.government_id_url,
+            "selfie_url": profile.selfie_url,
+            "proof_of_address_url": profile.proof_of_address_url,
+            "organization_cert_url": profile.organization_cert_url,
             "verification_status": profile.verification_status.value if hasattr(profile.verification_status, "value") else str(profile.verification_status),
             "affiliation_path": profile.affiliation_path.value if hasattr(profile.affiliation_path, "value") else str(profile.affiliation_path),
             "risk_tier": profile.risk_tier.value if hasattr(profile.risk_tier, "value") else str(profile.risk_tier),
+            "identity_layer_status": profile.identity_layer_status.value if hasattr(profile.identity_layer_status, "value") else str(profile.identity_layer_status),
+            "address_layer_status": profile.address_layer_status.value if hasattr(profile.address_layer_status, "value") else str(profile.address_layer_status),
+            "affiliation_layer_status": profile.affiliation_layer_status.value if hasattr(profile.affiliation_layer_status, "value") else str(profile.affiliation_layer_status),
+            "organization_layer_status": profile.organization_layer_status.value if hasattr(profile.organization_layer_status, "value") else str(profile.organization_layer_status),
+            "payout_layer_status": profile.payout_layer_status.value if hasattr(profile.payout_layer_status, "value") else str(profile.payout_layer_status),
+            "mission_layer_status": profile.mission_layer_status.value if hasattr(profile.mission_layer_status, "value") else str(profile.mission_layer_status),
+            "history_layer_status": profile.history_layer_status.value if hasattr(profile.history_layer_status, "value") else str(profile.history_layer_status),
             "badge_identity_verified": profile.badge_identity_verified,
             "badge_org_verified": profile.badge_org_verified,
             "badge_payout_verified": profile.badge_payout_verified,
             "badge_mission_verified": profile.badge_mission_verified,
+            "admin_notes": profile.admin_notes,
             "created_at": profile.created_at.isoformat() if profile.created_at else None,
         })
     return results
@@ -162,8 +193,18 @@ def admin_review_verification(
     profile.verification_status = review.status
     if review.admin_notes is not None:
         profile.admin_notes = review.admin_notes
-    if review.shepherd_id is not None:
-        profile.shepherd_id = review.shepherd_id
+
+    # Auto-generate Shepherd ID if missing (especially on APPROVE)
+    incoming_shepherd = (review.shepherd_id or "").strip() if review.shepherd_id is not None else None
+    if incoming_shepherd:
+        profile.shepherd_id = incoming_shepherd
+    elif not profile.shepherd_id:
+        user = db.query(User).filter(User.id == profile.user_id).first()
+        profile.shepherd_id = _generate_shepherd_id(
+            user.full_name if user else "OP",
+            profile.country or "XX",
+            profile.id,
+        )
     if review.affiliation_path is not None:
         profile.affiliation_path = review.affiliation_path
     if review.risk_tier is not None:
@@ -286,7 +327,16 @@ def update_missionary_profile(
     if payload.calling_description is not None:
         profile.calling_description = payload.calling_description
     if payload.stellar_payout_address is not None:
-        profile.stellar_payout_address = payload.stellar_payout_address
+        profile.stellar_payout_address = payload.stellar_payout_address.strip() or None
+
+    # Ensure Shepherd ID exists whenever profile is edited
+    if not profile.shepherd_id:
+        user = db.query(User).filter(User.id == profile.user_id).first()
+        profile.shepherd_id = _generate_shepherd_id(
+            user.full_name if user else "OP",
+            profile.country or "XX",
+            profile.id,
+        )
 
     db.commit()
     db.refresh(profile)
