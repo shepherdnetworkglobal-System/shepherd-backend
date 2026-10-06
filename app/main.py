@@ -96,7 +96,103 @@ def run_migrations():
             quantity NUMERIC(12, 2) DEFAULT 1.0 NOT NULL,
             unit_cost_usd NUMERIC(12, 2) NOT NULL,
             total_cost_usd NUMERIC(12, 2) NOT NULL,
+            actual_spent_usd NUMERIC(12, 2) DEFAULT 0.00 NOT NULL,
+            status VARCHAR(50) DEFAULT 'PLANNED' NOT NULL,
+            vendor_name VARCHAR(255),
             notes TEXT,
+            is_public BOOLEAN DEFAULT TRUE NOT NULL,
+            sort_order INTEGER DEFAULT 0 NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        "ALTER TABLE mission_budget_items ADD COLUMN IF NOT EXISTS actual_spent_usd NUMERIC(12,2) DEFAULT 0.00 NOT NULL;",
+        "ALTER TABLE mission_budget_items ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'PLANNED' NOT NULL;",
+        "ALTER TABLE mission_budget_items ADD COLUMN IF NOT EXISTS vendor_name VARCHAR(255);",
+        "ALTER TABLE mission_budget_items ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT TRUE NOT NULL;",
+        "ALTER TABLE mission_budget_items ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0 NOT NULL;",
+        "ALTER TABLE mission_budget_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;",
+
+        "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS budget_item_id INTEGER;",
+        "ALTER TABLE receipts ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT TRUE NOT NULL;",
+
+        """
+        CREATE TABLE IF NOT EXISTS mission_checkpoints (
+            id SERIAL PRIMARY KEY,
+            mission_id INTEGER NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            weight_percent NUMERIC(5,2) DEFAULT 0.00 NOT NULL,
+            status VARCHAR(50) DEFAULT 'PENDING' NOT NULL,
+            target_date TIMESTAMP,
+            completed_at TIMESTAMP,
+            sort_order INTEGER DEFAULT 0 NOT NULL,
+            requires_photo BOOLEAN DEFAULT TRUE NOT NULL,
+            requires_report BOOLEAN DEFAULT TRUE NOT NULL,
+            completion_notes TEXT,
+            photo_url VARCHAR(500),
+            is_public BOOLEAN DEFAULT TRUE NOT NULL,
+            auto_generated BOOLEAN DEFAULT FALSE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS mission_field_reports (
+            id SERIAL PRIMARY KEY,
+            mission_id INTEGER NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+            checkpoint_id INTEGER REFERENCES mission_checkpoints(id) ON DELETE SET NULL,
+            title VARCHAR(255) NOT NULL,
+            body TEXT NOT NULL,
+            report_type VARCHAR(50) DEFAULT 'WEEKLY' NOT NULL,
+            people_served_delta INTEGER DEFAULT 0 NOT NULL,
+            is_public BOOLEAN DEFAULT FALSE NOT NULL,
+            author_name VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS mission_payouts (
+            id SERIAL PRIMARY KEY,
+            mission_id INTEGER NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+            budget_item_id INTEGER REFERENCES mission_budget_items(id) ON DELETE SET NULL,
+            amount_usd NUMERIC(12,2) NOT NULL,
+            recipient_wallet VARCHAR(56),
+            recipient_name VARCHAR(255),
+            stellar_tx_hash VARCHAR(64),
+            purpose TEXT,
+            status VARCHAR(50) DEFAULT 'PENDING' NOT NULL,
+            is_public BOOLEAN DEFAULT TRUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            sent_at TIMESTAMP
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS mission_risk_incidents (
+            id SERIAL PRIMARY KEY,
+            mission_id INTEGER NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+            title VARCHAR(255) NOT NULL,
+            description TEXT NOT NULL,
+            severity VARCHAR(20) DEFAULT 'MEDIUM' NOT NULL,
+            status VARCHAR(50) DEFAULT 'OPEN' NOT NULL,
+            resolution_plan TEXT,
+            resolved_at TIMESTAMP,
+            is_public BOOLEAN DEFAULT FALSE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS mission_photos (
+            id SERIAL PRIMARY KEY,
+            mission_id INTEGER NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+            checkpoint_id INTEGER REFERENCES mission_checkpoints(id) ON DELETE SET NULL,
+            budget_item_id INTEGER REFERENCES mission_budget_items(id) ON DELETE SET NULL,
+            image_url VARCHAR(500) NOT NULL,
+            caption TEXT,
+            category VARCHAR(50) DEFAULT 'DURING' NOT NULL,
+            is_public BOOLEAN DEFAULT TRUE NOT NULL,
+            sort_order INTEGER DEFAULT 0 NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """,

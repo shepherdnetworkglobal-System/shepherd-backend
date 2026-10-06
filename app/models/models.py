@@ -306,6 +306,11 @@ class Mission(Base):
     updates = relationship("MilestoneUpdate", back_populates="mission")
     coalition_partners = relationship("MissionCoalitionPartner", back_populates="mission", cascade="all, delete-orphan")
     budget_items = relationship("MissionBudgetItem", back_populates="mission", cascade="all, delete-orphan")
+    checkpoints = relationship("MissionCheckpoint", back_populates="mission", cascade="all, delete-orphan")
+    field_reports = relationship("MissionFieldReport", back_populates="mission", cascade="all, delete-orphan")
+    payouts = relationship("MissionPayout", back_populates="mission", cascade="all, delete-orphan")
+    risk_incidents = relationship("MissionRiskIncident", back_populates="mission", cascade="all, delete-orphan")
+    photos = relationship("MissionPhoto", back_populates="mission", cascade="all, delete-orphan")
 
 
 class MissionCoalitionPartner(Base):
@@ -333,10 +338,123 @@ class MissionBudgetItem(Base):
     quantity = Column(Numeric(12, 2), default=1.0, nullable=False)
     unit_cost_usd = Column(Numeric(12, 2), nullable=False)
     total_cost_usd = Column(Numeric(12, 2), nullable=False)
+    actual_spent_usd = Column(Numeric(12, 2), default=0.00, nullable=False)
+    status = Column(String(50), default="PLANNED", nullable=False)
+    # PLANNED | QUOTED | APPROVED | IN_PROGRESS | PAID | OVER_BUDGET | CANCELLED
+    vendor_name = Column(String(255), nullable=True)
     notes = Column(Text, nullable=True)
+    is_public = Column(Boolean, default=True, nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     mission = relationship("Mission", back_populates="budget_items")
+    receipts = relationship("Receipt", back_populates="budget_item")
+
+
+class MissionCheckpoint(Base):
+    __tablename__ = "mission_checkpoints"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mission_id = Column(Integer, ForeignKey("missions.id"), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    weight_percent = Column(Numeric(5, 2), default=0.00, nullable=False)
+    status = Column(String(50), default="PENDING", nullable=False)
+    # PENDING | IN_PROGRESS | COMPLETED | DELAYED | SKIPPED
+    target_date = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    sort_order = Column(Integer, default=0, nullable=False)
+    requires_photo = Column(Boolean, default=True, nullable=False)
+    requires_report = Column(Boolean, default=True, nullable=False)
+    completion_notes = Column(Text, nullable=True)
+    photo_url = Column(String(500), nullable=True)
+    is_public = Column(Boolean, default=True, nullable=False)
+    auto_generated = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    mission = relationship("Mission", back_populates="checkpoints")
+
+
+class MissionFieldReport(Base):
+    __tablename__ = "mission_field_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mission_id = Column(Integer, ForeignKey("missions.id"), nullable=False)
+    checkpoint_id = Column(Integer, ForeignKey("mission_checkpoints.id"), nullable=True)
+    title = Column(String(255), nullable=False)
+    body = Column(Text, nullable=False)
+    report_type = Column(String(50), default="WEEKLY", nullable=False)
+    # WEEKLY | MONTHLY | INCIDENT | COMPLETION | TESTIMONY
+    people_served_delta = Column(Integer, default=0, nullable=False)
+    is_public = Column(Boolean, default=False, nullable=False)
+    author_name = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    mission = relationship("Mission", back_populates="field_reports")
+    checkpoint = relationship("MissionCheckpoint")
+
+
+class MissionPayout(Base):
+    __tablename__ = "mission_payouts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mission_id = Column(Integer, ForeignKey("missions.id"), nullable=False)
+    budget_item_id = Column(Integer, ForeignKey("mission_budget_items.id"), nullable=True)
+    amount_usd = Column(Numeric(12, 2), nullable=False)
+    recipient_wallet = Column(String(56), nullable=True)
+    recipient_name = Column(String(255), nullable=True)
+    stellar_tx_hash = Column(String(64), nullable=True)
+    purpose = Column(Text, nullable=True)
+    status = Column(String(50), default="PENDING", nullable=False)
+    # PENDING | APPROVED | SENT | CONFIRMED | FAILED
+    is_public = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    sent_at = Column(DateTime, nullable=True)
+
+    mission = relationship("Mission", back_populates="payouts")
+    budget_item = relationship("MissionBudgetItem")
+
+
+class MissionRiskIncident(Base):
+    __tablename__ = "mission_risk_incidents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mission_id = Column(Integer, ForeignKey("missions.id"), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    severity = Column(String(20), default="MEDIUM", nullable=False)
+    # LOW | MEDIUM | HIGH
+    status = Column(String(50), default="OPEN", nullable=False)
+    # OPEN | MONITORING | RESOLVED | CLOSED
+    resolution_plan = Column(Text, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+    is_public = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    mission = relationship("Mission", back_populates="risk_incidents")
+
+
+class MissionPhoto(Base):
+    __tablename__ = "mission_photos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mission_id = Column(Integer, ForeignKey("missions.id"), nullable=False)
+    checkpoint_id = Column(Integer, ForeignKey("mission_checkpoints.id"), nullable=True)
+    budget_item_id = Column(Integer, ForeignKey("mission_budget_items.id"), nullable=True)
+    image_url = Column(String(500), nullable=False)
+    caption = Column(Text, nullable=True)
+    category = Column(String(50), default="DURING", nullable=False)
+    # BEFORE | DURING | AFTER | RECEIPT | OTHER
+    is_public = Column(Boolean, default=True, nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    mission = relationship("Mission", back_populates="photos")
+    checkpoint = relationship("MissionCheckpoint")
+    budget_item = relationship("MissionBudgetItem")
 
 
 class Receipt(Base):
@@ -344,15 +462,18 @@ class Receipt(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     mission_id = Column(Integer, ForeignKey("missions.id"), nullable=False)
+    budget_item_id = Column(Integer, ForeignKey("mission_budget_items.id"), nullable=True)
     title = Column(String(255), nullable=False)
     amount_spent_usd = Column(Numeric(12, 2), nullable=False)
     category = Column(String(100), nullable=False)
     receipt_image_url = Column(String(500), nullable=False)
     vendor_name = Column(String(255), nullable=True)
     notes = Column(Text, nullable=True)
+    is_public = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     mission = relationship("Mission", back_populates="receipts")
+    budget_item = relationship("MissionBudgetItem", back_populates="receipts")
 
 
 class MilestoneUpdate(Base):
