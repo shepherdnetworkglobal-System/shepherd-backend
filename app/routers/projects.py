@@ -116,6 +116,17 @@ class ProjectReceiptCreate(BaseModel):
     is_public: bool = True
 
 
+class ProjectReceiptUpdate(BaseModel):
+    title: Optional[str] = None
+    amount_spent_usd: Optional[float] = None
+    category: Optional[str] = None
+    receipt_image_url: Optional[str] = None
+    vendor_name: Optional[str] = None
+    notes: Optional[str] = None
+    is_public: Optional[bool] = None
+    budget_item_id: Optional[int] = None
+
+
 # --- TAB 1: Dashboard Summary & Calculation Engine ---
 @router.get("/summary/{mission_id}")
 def get_project_summary(mission_id: int, db: Session = Depends(get_db)):
@@ -418,6 +429,55 @@ def create_project_receipt(payload: ProjectReceiptCreate, db: Session = Depends(
                 item.status = "OVER_BUDGET"
             elif item.status in ("PLANNED", "QUOTED", "APPROVED"):
                 item.status = "PAID"
+
+    db.commit()
+    db.refresh(receipt)
+    return {"status": "success", "id": receipt.id}
+
+
+@router.put("/receipts/{receipt_id}")
+def update_project_receipt(receipt_id: int, payload: ProjectReceiptUpdate, db: Session = Depends(get_db)):
+    receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    old_amount = float(receipt.amount_spent_usd or 0)
+    old_budget_item_id = getattr(receipt, "budget_item_id", None)
+
+    if payload.title is not None:
+        receipt.title = payload.title
+    if payload.amount_spent_usd is not None:
+        receipt.amount_spent_usd = payload.amount_spent_usd
+    if payload.category is not None:
+        receipt.category = payload.category
+    if payload.receipt_image_url is not None:
+        receipt.receipt_image_url = payload.receipt_image_url
+    if payload.vendor_name is not None:
+        receipt.vendor_name = payload.vendor_name
+    if payload.notes is not None:
+        receipt.notes = payload.notes
+    if payload.is_public is not None:
+        receipt.is_public = payload.is_public
+    if payload.budget_item_id is not None:
+        receipt.budget_item_id = payload.budget_item_id
+
+    # Adjust linked budget actual spend if amount or link changed
+    new_amount = float(receipt.amount_spent_usd or 0)
+    new_budget_item_id = getattr(receipt, "budget_item_id", None)
+
+    if old_budget_item_id and old_budget_item_id != new_budget_item_id:
+        old_item = db.query(MissionBudgetItem).filter(MissionBudgetItem.id == old_budget_item_id).first()
+        if old_item:
+            old_item.actual_spent_usd = max(0.0, float(old_item.actual_spent_usd or 0) - old_amount)
+
+    if new_budget_item_id:
+        new_item = db.query(MissionBudgetItem).filter(MissionBudgetItem.id == new_budget_item_id).first()
+        if new_item:
+            # If same item, replace old amount with new amount
+            if old_budget_item_id == new_budget_item_id:
+                new_item.actual_spent_usd = max(0.0, float(new_item.actual_spent_usd or 0) - old_amount + new_amount)
+            else:
+                new_item.actual_spent_usd = float(new_item.actual_spent_usd or 0) + new_amount
 
     db.commit()
     db.refresh(receipt)
