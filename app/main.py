@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.database.session import Base, engine, SessionLocal
 from app.models.models import User, UserRole
 from app.core.security import get_password_hash
-from app.routers import auth, verification, missions, donations, payouts, accountability, uploads, platform
+from app.routers import auth, verification, missions, donations, payouts, accountability, uploads, platform, projects
 
 from sqlalchemy import text
 
@@ -263,6 +263,7 @@ app.include_router(payouts.router)
 app.include_router(accountability.router)
 app.include_router(uploads.router)
 app.include_router(platform.router)
+app.include_router(projects.router)
 
 # Serve uploaded files
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
