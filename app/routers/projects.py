@@ -391,6 +391,26 @@ def create_photo(payload: PhotoUploadCreate, db: Session = Depends(get_db)):
     return {"status": "success", "id": photo.id}
 
 
+@router.delete("/photos/{photo_id}")
+def delete_photo(photo_id: int, db: Session = Depends(get_db)):
+    photo = db.query(MissionPhoto).filter(MissionPhoto.id == photo_id).first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    db.delete(photo)
+    db.commit()
+    return {"status": "success", "message": "Photo deleted"}
+
+
+@router.delete("/reports/{report_id}")
+def delete_report(report_id: int, db: Session = Depends(get_db)):
+    report = db.query(MissionFieldReport).filter(MissionFieldReport.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    db.delete(report)
+    db.commit()
+    return {"status": "success", "message": "Report deleted"}
+
+
 # --- TAB 6: Field Reports ---
 @router.get("/reports/{mission_id}")
 def list_reports(mission_id: int, db: Session = Depends(get_db)):
