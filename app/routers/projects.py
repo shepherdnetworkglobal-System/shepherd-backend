@@ -104,6 +104,18 @@ class PhotoUploadCreate(BaseModel):
     is_public: bool = True
 
 
+class ProjectReceiptCreate(BaseModel):
+    mission_id: int
+    budget_item_id: Optional[int] = None
+    title: str
+    amount_spent_usd: float
+    category: str = "MATERIALS"
+    receipt_image_url: str
+    vendor_name: Optional[str] = None
+    notes: Optional[str] = None
+    is_public: bool = True
+
+
 # --- TAB 1: Dashboard Summary & Calculation Engine ---
 @router.get("/summary/{mission_id}")
 def get_project_summary(mission_id: int, db: Session = Depends(get_db)):
@@ -354,6 +366,82 @@ def delete_checkpoint(checkpoint_id: int, db: Session = Depends(get_db)):
     db.delete(cp)
     db.commit()
     return {"status": "success", "message": "Checkpoint deleted"}
+
+
+# --- TAB 3: Receipts ---
+@router.get("/receipts/{mission_id}")
+def list_project_receipts(mission_id: int, db: Session = Depends(get_db)):
+    rows = db.query(Receipt).filter(Receipt.mission_id == mission_id).order_by(Receipt.created_at.desc()).all()
+    return [
+        {
+            "id": r.id,
+            "mission_id": r.mission_id,
+            "budget_item_id": getattr(r, "budget_item_id", None),
+            "title": r.title,
+            "amount_spent_usd": float(r.amount_spent_usd or 0),
+            "category": r.category,
+            "receipt_image_url": r.receipt_image_url,
+            "vendor_name": r.vendor_name,
+            "notes": r.notes,
+            "is_public": bool(getattr(r, "is_public", True)),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/receipts")
+def create_project_receipt(payload: ProjectReceiptCreate, db: Session = Depends(get_db)):
+    mission = db.query(Mission).filter(Mission.id == payload.mission_id).first()
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+
+    receipt = Receipt(
+        mission_id=payload.mission_id,
+        budget_item_id=payload.budget_item_id,
+        title=payload.title,
+        amount_spent_usd=payload.amount_spent_usd,
+        category=payload.category,
+        receipt_image_url=payload.receipt_image_url,
+        vendor_name=payload.vendor_name,
+        notes=payload.notes,
+        is_public=payload.is_public,
+    )
+    db.add(receipt)
+
+    # Keep budget item actual spend in sync when linked
+    if payload.budget_item_id:
+        item = db.query(MissionBudgetItem).filter(MissionBudgetItem.id == payload.budget_item_id).first()
+        if item:
+            item.actual_spent_usd = float(item.actual_spent_usd or 0) + float(payload.amount_spent_usd)
+            if float(item.actual_spent_usd) > float(item.total_cost_usd or 0):
+                item.status = "OVER_BUDGET"
+            elif item.status in ("PLANNED", "QUOTED", "APPROVED"):
+                item.status = "PAID"
+
+    db.commit()
+    db.refresh(receipt)
+    return {"status": "success", "id": receipt.id}
+
+
+@router.delete("/receipts/{receipt_id}")
+def delete_project_receipt(receipt_id: int, db: Session = Depends(get_db)):
+    receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    amount = float(receipt.amount_spent_usd or 0)
+    budget_item_id = getattr(receipt, "budget_item_id", None)
+
+    db.delete(receipt)
+
+    if budget_item_id:
+        item = db.query(MissionBudgetItem).filter(MissionBudgetItem.id == budget_item_id).first()
+        if item:
+            item.actual_spent_usd = max(0.0, float(item.actual_spent_usd or 0) - amount)
+
+    db.commit()
+    return {"status": "success", "message": "Receipt deleted"}
 
 
 # --- TAB 5: Photos & Media ---
