@@ -67,6 +67,16 @@ class FieldReportCreate(BaseModel):
     is_public: bool = False
     author_name: Optional[str] = None
 
+
+class FieldReportUpdate(BaseModel):
+    title: Optional[str] = None
+    body: Optional[str] = None
+    report_type: Optional[str] = None
+    people_served_delta: Optional[int] = None
+    is_public: Optional[bool] = None
+    author_name: Optional[str] = None
+    checkpoint_id: Optional[int] = None
+
 class PayoutCreate(BaseModel):
     mission_id: int
     budget_item_id: Optional[int] = None
@@ -547,6 +557,32 @@ def delete_photo(photo_id: int, db: Session = Depends(get_db)):
     db.delete(photo)
     db.commit()
     return {"status": "success", "message": "Photo deleted"}
+
+
+@router.put("/reports/{report_id}")
+def update_report(report_id: int, payload: FieldReportUpdate, db: Session = Depends(get_db)):
+    report = db.query(MissionFieldReport).filter(MissionFieldReport.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    if payload.title is not None:
+        report.title = payload.title
+    if payload.body is not None:
+        report.body = payload.body
+    if payload.report_type is not None:
+        report.report_type = payload.report_type
+    if payload.people_served_delta is not None:
+        report.people_served_delta = payload.people_served_delta
+    if payload.is_public is not None:
+        report.is_public = payload.is_public
+    if payload.author_name is not None:
+        report.author_name = payload.author_name
+    if payload.checkpoint_id is not None:
+        report.checkpoint_id = payload.checkpoint_id
+
+    db.commit()
+    db.refresh(report)
+    return {"status": "success", "id": report.id}
 
 
 @router.delete("/reports/{report_id}")
