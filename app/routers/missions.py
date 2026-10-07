@@ -15,6 +15,20 @@ def _serialize_mission(m: Mission) -> dict:
     """Safely convert SQLAlchemy Mission model to dict without Pydantic serialization crashes."""
     status_str = str(getattr(m.status, "value", m.status) or "ACTIVE").upper()
     underfunding_str = str(getattr(m.underfunding_rule, "value", m.underfunding_rule) or "HOLD_UNTIL_THRESHOLD").upper()
+
+    missionary_data = None
+    try:
+        if m.missionary:
+            missionary_data = {
+                "name": m.missionary.user.full_name if m.missionary.user else "Verified Operator",
+                "shepherd_id": m.missionary.shepherd_id,
+                "organization_name": m.missionary.organization_name,
+                "profile_photo_url": m.missionary.profile_photo_url,
+                "years_of_service": m.missionary.years_of_service,
+                "affiliation": str(getattr(m.missionary.affiliation_path, "value", m.missionary.affiliation_path) or "INDEPENDENT")
+            }
+    except Exception:
+        pass
     overfunding_str = str(getattr(m.overfunding_rule, "value", m.overfunding_rule) or "EXPAND_SCOPE").upper()
 
     coalition = []
@@ -57,6 +71,7 @@ def _serialize_mission(m: Mission) -> dict:
     return {
         "id": m.id,
         "missionary_id": m.missionary_id,
+        "missionary": missionary_data,
         "title": m.title,
         "description": m.description,
         "goal_amount_usd": float(m.goal_amount_usd or 0.0),
