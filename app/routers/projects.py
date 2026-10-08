@@ -113,6 +113,13 @@ class PhotoUploadCreate(BaseModel):
     category: str = "DURING"
     is_public: bool = True
 
+class PhotoUploadUpdate(BaseModel):
+    checkpoint_id: Optional[int] = None
+    budget_item_id: Optional[int] = None
+    caption: Optional[str] = None
+    category: Optional[str] = None
+    is_public: Optional[bool] = None
+
 
 class ProjectReceiptCreate(BaseModel):
     mission_id: int
@@ -546,6 +553,28 @@ def create_photo(payload: PhotoUploadCreate, db: Session = Depends(get_db)):
     )
     db.add(photo)
     db.commit()
+    return {"status": "success", "id": photo.id}
+
+
+@router.put("/photos/{photo_id}")
+def update_photo(photo_id: int, payload: PhotoUploadUpdate, db: Session = Depends(get_db)):
+    photo = db.query(MissionPhoto).filter(MissionPhoto.id == photo_id).first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    if payload.checkpoint_id is not None:
+        photo.checkpoint_id = payload.checkpoint_id
+    if payload.budget_item_id is not None:
+        photo.budget_item_id = payload.budget_item_id
+    if payload.caption is not None:
+        photo.caption = payload.caption
+    if payload.category is not None:
+        photo.category = payload.category
+    if payload.is_public is not None:
+        photo.is_public = payload.is_public
+
+    db.commit()
+    db.refresh(photo)
     return {"status": "success", "id": photo.id}
 
 
