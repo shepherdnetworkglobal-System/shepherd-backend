@@ -1,7 +1,8 @@
 from typing import List, Optional
 import traceback
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 
 from app.database.session import get_db
@@ -68,10 +69,88 @@ def _serialize_mission(m: Mission) -> dict:
     except Exception:
         budget = []
 
+    photos = []
+    try:
+        if hasattr(m, "photos") and m.photos:
+            public_photos = [p for p in m.photos if getattr(p, "is_public", True)]
+            public_photos = sorted(public_photos, key=lambda p: p.created_at or datetime.min, reverse=True)
+            photos = [
+                {
+                    "id": p.id,
+                    "url": p.image_url,
+                    "image_url": p.image_url,
+                    "caption": p.caption,
+                    "category": str(p.category) if p.category else "DURING",
+                    "checkpoint_id": p.checkpoint_id,
+                    "is_public": bool(p.is_public),
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                }
+                for p in public_photos
+            ]
+    except Exception:
+        photos = []
+
+    reports = []
+    try:
+        if hasattr(m, "field_reports") and m.field_reports:
+            public_reports = [r for r in m.field_reports if getattr(r, "is_public", False)]
+            public_reports = sorted(public_reports, key=lambda r: r.created_at or datetime.min, reverse=True)
+            reports = [
+                {
+                    "id": r.id,
+                    "title": r.title,
+                    "summary": (r.body or "")[:280],
+                    "body": r.body,
+                    "report_type": str(r.report_type) if r.report_type else "WEEKLY",
+                    "checkpoint_id": r.checkpoint_id,
+                    "people_served_delta": int(r.people_served_delta or 0),
+                    "author_name": r.author_name,
+                    "is_public": bool(r.is_public),
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in public_reports
+            ]
+    except Exception:
+        reports = []
+
+    checkpoints = []
+    try:
+        if hasattr(m, "checkpoints") and m.checkpoints:
+            public_cps = [c for c in m.checkpoints if getattr(c, "is_public", True)]
+            public_cps = sorted(public_cps, key=lambda c: c.sort_order or 0)
+            checkpoints = [
+                {
+                    "id": c.id,
+                    "title": c.title,
+                    "description": c.description,
+                    "status": str(c.status) if c.status else "PENDING",
+                    "weight_percent": float(c.weight_percent or 0),
+                    "sort_order": int(c.sort_order or 0),
+                    "photo_url": c.photo_url,
+                    "is_public": bool(c.is_public),
+                }
+                for c in public_cps
+            ]
+    except Exception:
+        checkpoints = []
+
+    cover_image = None
+    if photos:
+        cover_image = photos[0].get("url")
+    elif getattr(m, "before_gallery_images", None):
+        raw = m.before_gallery_images
+        if isinstance(raw, str) and raw.strip():
+            cover_image = raw.split(",")[0].strip()
+
+    latest_update = None
+    if reports:
+        latest_update = reports[0].get("summary") or reports[0].get("title")
+
     return {
         "id": m.id,
         "missionary_id": m.missionary_id,
         "missionary": missionary_data,
+        "missionary_profile": missionary_data,
         "title": m.title,
         "description": m.description,
         "goal_amount_usd": float(m.goal_amount_usd or 0.0),
@@ -96,7 +175,13 @@ def _serialize_mission(m: Mission) -> dict:
         "status": status_str,
         "created_at": m.created_at.isoformat() if m.created_at else None,
         "coalition_partners": coalition,
-        "budget_items": budget
+        "budget_items": budget,
+        "photos": photos,
+        "reports": reports,
+        "field_reports": reports,
+        "checkpoints": checkpoints,
+        "cover_image": cover_image,
+        "latest_update": latest_update,
     }
 
 
@@ -179,13 +264,37 @@ def create_mission(
 @router.get("")
 @router.get("/")
 def list_missions(db: Session = Depends(get_db)):
-    missions = db.query(Mission).order_by(Mission.created_at.desc()).all()
+    missions = (
+        db.query(Mission)
+        .options(
+            joinedload(Mission.missionary).joinedload(MissionaryProfile.user),
+            joinedload(Mission.photos),
+            joinedload(Mission.field_reports),
+            joinedload(Mission.checkpoints),
+            joinedload(Mission.budget_items),
+            joinedload(Mission.coalition_partners),
+        )
+        .order_by(Mission.created_at.desc())
+        .all()
+    )
     return [_serialize_mission(m) for m in missions]
 
 
 @router.get("/{mission_id}")
 def get_mission(mission_id: int, db: Session = Depends(get_db)):
-    mission = db.query(Mission).filter(Mission.id == mission_id).first()
+    mission = (
+        db.query(Mission)
+        .options(
+            joinedload(Mission.missionary).joinedload(MissionaryProfile.user),
+            joinedload(Mission.photos),
+            joinedload(Mission.field_reports),
+            joinedload(Mission.checkpoints),
+            joinedload(Mission.budget_items),
+            joinedload(Mission.coalition_partners),
+        )
+        .filter(Mission.id == mission_id)
+        .first()
+    )
     if not mission:
         raise HTTPException(status_code=404, detail="Mission not found")
     return _serialize_mission(mission)
