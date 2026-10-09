@@ -387,9 +387,12 @@ class MissionCreate(BaseModel):
 class MissionUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    status: Optional[MissionStatus] = None
-    underfunding_rule: Optional[UnderfundingRule] = None
-    overfunding_rule: Optional[OverfundingRule] = None
+    goal_amount_usd: Optional[float] = None
+    target_country: Optional[str] = None
+    map_location: Optional[str] = None
+    status: Optional[str] = None
+    underfunding_rule: Optional[str] = None
+    overfunding_rule: Optional[str] = None
     exact_location_hidden: Optional[bool] = None
     location_granularity: Optional[str] = None
     reporting_plan: Optional[str] = None

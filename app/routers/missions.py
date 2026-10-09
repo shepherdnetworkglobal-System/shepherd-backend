@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 
 from app.database.session import get_db
-from app.models.models import Mission, MissionaryProfile, User
+from app.models.models import Mission, MissionaryProfile, MissionCoalitionPartner, User
 from app.schemas.schemas import MissionCreate, MissionUpdate
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/missions", tags=["Missions"])
 
@@ -328,7 +329,67 @@ def update_mission(
         mission.reporting_plan = payload.reporting_plan
     if payload.local_partners is not None:
         mission.local_partners = payload.local_partners
+    if payload.goal_amount_usd is not None:
+        mission.goal_amount_usd = payload.goal_amount_usd
+    if payload.target_country is not None:
+        mission.target_country = payload.target_country
+    if payload.map_location is not None:
+        mission.map_location = payload.map_location
 
     db.commit()
     db.refresh(mission)
     return _serialize_mission(mission)
+
+
+# --- Coalition Partner Management ---
+class CoalitionPartnerAdd(BaseModel):
+    missionary_id: int
+    partner_role: str = "SUPPORT"
+
+@router.post("/{mission_id}/partners")
+def add_coalition_partner(
+    mission_id: int,
+    payload: CoalitionPartnerAdd,
+    db: Session = Depends(get_db)
+):
+    mission = db.query(Mission).filter(Mission.id == mission_id).first()
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+
+    profile = db.query(MissionaryProfile).filter(MissionaryProfile.id == payload.missionary_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Missionary profile not found")
+
+    existing = db.query(MissionCoalitionPartner).filter(
+        MissionCoalitionPartner.mission_id == mission_id,
+        MissionCoalitionPartner.missionary_id == payload.missionary_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="This missionary is already a partner on this mission")
+
+    partner = MissionCoalitionPartner(
+        mission_id=mission_id,
+        missionary_id=payload.missionary_id,
+        partner_role=payload.partner_role
+    )
+    db.add(partner)
+    db.commit()
+    db.refresh(partner)
+    return {"status": "success", "id": partner.id}
+
+
+@router.delete("/{mission_id}/partners/{partner_id}")
+def remove_coalition_partner(
+    mission_id: int,
+    partner_id: int,
+    db: Session = Depends(get_db)
+):
+    partner = db.query(MissionCoalitionPartner).filter(
+        MissionCoalitionPartner.id == partner_id,
+        MissionCoalitionPartner.mission_id == mission_id
+    ).first()
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    db.delete(partner)
+    db.commit()
+    return {"status": "success", "message": "Partner removed"}
