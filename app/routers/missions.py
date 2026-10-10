@@ -335,6 +335,12 @@ def update_mission(
         mission.target_country = payload.target_country
     if payload.map_location is not None:
         mission.map_location = payload.map_location
+    if payload.problem_statement is not None:
+        mission.problem_statement = payload.problem_statement
+    if payload.mission_objectives is not None:
+        mission.mission_objectives = payload.mission_objectives
+    if payload.proposed_process is not None:
+        mission.proposed_process = payload.proposed_process
 
     db.commit()
     db.refresh(mission)

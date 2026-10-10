@@ -397,6 +397,12 @@ class MissionUpdate(BaseModel):
     location_granularity: Optional[str] = None
     reporting_plan: Optional[str] = None
     local_partners: Optional[str] = None
+    problem_statement: Optional[str] = None
+    mission_objectives: Optional[str] = None
+    proposed_process: Optional[str] = None
+    problem_statement: Optional[str] = None
+    mission_objectives: Optional[str] = None
+    proposed_process: Optional[str] = None
 
 
 class MissionResponse(BaseModel):
