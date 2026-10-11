@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.database.session import Base, engine, SessionLocal
 from app.models.models import User, UserRole
 from app.core.security import get_password_hash
-from app.routers import auth, verification, missions, donations, payouts, accountability, uploads, platform, projects
+from app.routers import auth, verification, missions, donations, payouts, accountability, uploads, platform, projects, scripture
 
 from sqlalchemy import text
 
@@ -197,6 +197,24 @@ def run_migrations():
         );
         """,
 
+        # Spiritual Engine (Scripture Table)
+        """
+        CREATE TABLE IF NOT EXISTS scriptures (
+            id SERIAL PRIMARY KEY,
+            reference VARCHAR(120) NOT NULL,
+            translation VARCHAR(40) DEFAULT 'ESV' NOT NULL,
+            text TEXT NOT NULL,
+            theme VARCHAR(80) DEFAULT 'GENERAL' NOT NULL,
+            placement VARCHAR(80) DEFAULT 'HOMEPAGE' NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE NOT NULL,
+            is_featured BOOLEAN DEFAULT FALSE NOT NULL,
+            weight INTEGER DEFAULT 0 NOT NULL,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+
         # Database Sanitization (Clean corrupted Enum prefixes in PostgreSQL)
         "UPDATE missions SET status = 'ACTIVE' WHERE status LIKE '%ACTIVE%' OR status IS NULL;",
         "UPDATE missions SET status = 'COMPLETED' WHERE status LIKE '%COMPLETED%';",
@@ -233,9 +251,36 @@ def seed_admin():
         db.close()
 
 
+def seed_scripture():
+    from app.models.models import Scripture
+    db: Session = SessionLocal()
+    try:
+        existing = db.query(Scripture).filter(Scripture.reference == "2 Corinthians 8:21").first()
+        if not existing:
+            db.add(Scripture(
+                reference="2 Corinthians 8:21",
+                translation="ESV",
+                text="For we aim at what is honorable not only in the Lord's sight but also in the sight of man.",
+                theme="TRANSPARENCY",
+                placement="HOMEPAGE",
+                is_active=True,
+                is_featured=True,
+                weight=100,
+                notes="Platform foundation verse"
+            ))
+            db.commit()
+            print(">>> Default Scripture Seeded: 2 Corinthians 8:21")
+    except Exception as e:
+        db.rollback()
+        print("Scripture seed note:", e)
+    finally:
+        db.close()
+
+
 # Demo seeder removed for production live-data mode
 run_migrations()
 seed_admin()
+seed_scripture()
 
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
@@ -264,6 +309,7 @@ app.include_router(accountability.router)
 app.include_router(uploads.router)
 app.include_router(platform.router)
 app.include_router(projects.router)
+app.include_router(scripture.router)
 
 # Serve uploaded files
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")

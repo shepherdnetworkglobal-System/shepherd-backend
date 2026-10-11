@@ -475,7 +475,29 @@ class Receipt(Base):
     mission = relationship("Mission", back_populates="receipts")
     budget_item = relationship("MissionBudgetItem", back_populates="receipts")
 
+class Scripture(Base):
+    """Spiritual Engine — curated Bible verses for public rendering."""
+    __tablename__ = "scriptures"
 
+    id = Column(Integer, primary_key=True, index=True)
+    reference = Column(String(120), nullable=False, index=True)
+    # e.g. "2 Corinthians 8:21"
+    translation = Column(String(40), default="ESV", nullable=False)
+    # ESV | KJV | NIV | NLT | NKJV
+    text = Column(Text, nullable=False)
+    theme = Column(String(80), default="GENERAL", nullable=False, index=True)
+    # GENEROSITY | STEWARDSHIP | TRANSPARENCY | FAITH | SERVICE | HOPE | GENERAL | MISSION
+    placement = Column(String(80), default="HOMEPAGE", nullable=False, index=True)
+    # HOMEPAGE | MISSION_BRIEF | FOOTER | DONATION_WALL | OPERATOR_PROFILE | GLOBAL
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_featured = Column(Boolean, default=False, nullable=False)
+    weight = Column(Integer, default=0, nullable=False)
+    # higher weight = more likely to rotate into featured slots
+    notes = Column(Text, nullable=True)
+    # admin-only curation notes
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
 class MilestoneUpdate(Base):
     __tablename__ = "milestone_updates"
 

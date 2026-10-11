@@ -517,3 +517,46 @@ class MilestoneUpdateResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --- Spiritual Engine (Scripture) ---
+class ScriptureCreate(BaseModel):
+    reference: str
+    translation: str = "ESV"
+    text: str
+    theme: str = "GENERAL"
+    placement: str = "HOMEPAGE"
+    is_active: bool = True
+    is_featured: bool = False
+    weight: int = 0
+    notes: Optional[str] = None
+
+
+class ScriptureUpdate(BaseModel):
+    reference: Optional[str] = None
+    translation: Optional[str] = None
+    text: Optional[str] = None
+    theme: Optional[str] = None
+    placement: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_featured: Optional[bool] = None
+    weight: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class ScriptureResponse(BaseModel):
+    id: int
+    reference: str
+    translation: str
+    text: str
+    theme: str
+    placement: str
+    is_active: bool
+    is_featured: bool
+    weight: int
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
