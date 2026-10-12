@@ -97,6 +97,8 @@ def _confirm_donation_in_db(db: Session, donation_id: int, tx_hash: str):
     return donation
 
 
+from sqlalchemy import func
+
 @router.post("/verify-stripe/{donation_id}")
 def verify_stripe_donation(donation_id: int, db: Session = Depends(get_db)):
     donation = db.query(Donation).filter(Donation.id == donation_id).first()
@@ -105,25 +107,31 @@ def verify_stripe_donation(donation_id: int, db: Session = Depends(get_db)):
     
     mission = db.query(Mission).filter(Mission.id == donation.mission_id).first()
     
-    # Confirm pending donation and increment mission capital
+    # Mark donation confirmed if pending
     if str(donation.status).upper() in ["PENDING", "DONATIONSTATUS.PENDING"]:
         donation.status = DonationStatus.CONFIRMED_ONCHAIN
         donation.stellar_tx_hash = f"STRIPE-SUCCESS-{donation_id}"
-        if mission:
-            current_raised = Decimal(str(mission.raised_amount_usd or 0))
-            donation_amt = Decimal(str(donation.amount_usd or 0))
-            mission.raised_amount_usd = current_raised + donation_amt
         db.commit()
-        db.refresh(donation)
-        if mission:
-            db.refresh(mission)
+
+    # Recalculate true sum of all confirmed donations for this mission
+    confirmed_total = db.query(func.sum(Donation.amount_usd))\
+        .filter(Donation.mission_id == donation.mission_id, Donation.status == DonationStatus.CONFIRMED_ONCHAIN)\
+        .scalar() or Decimal("0.00")
+
+    if mission:
+        mission.raised_amount_usd = confirmed_total
+        db.commit()
+        db.refresh(mission)
 
     return {
         "donation_id": donation.id,
         "status": str(donation.status),
         "amount_usd": float(donation.amount_usd or 0),
+        "donor_name": donation.donor_name or "Generous Donor",
+        "donor_email": donation.donor_email or "",
         "mission_id": donation.mission_id,
-        "raised_amount_usd": float(mission.raised_amount_usd or 0) if mission else 0
+        "mission_title": mission.title if mission else "",
+        "raised_amount_usd": float(confirmed_total)
     }
 
 
