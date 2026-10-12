@@ -9,6 +9,7 @@ from app.database.session import Base, engine, SessionLocal
 from app.models.models import User, UserRole
 from app.core.security import get_password_hash
 from app.routers import auth, verification, missions, donations, payouts, accountability, uploads, platform, projects, scripture
+from app.routers.donations import webhook_router
 
 from sqlalchemy import text
 
@@ -304,6 +305,7 @@ app.include_router(auth.router)
 app.include_router(verification.router)
 app.include_router(missions.router)
 app.include_router(donations.router)
+app.include_router(webhook_router)
 app.include_router(payouts.router)
 app.include_router(accountability.router)
 app.include_router(uploads.router)
