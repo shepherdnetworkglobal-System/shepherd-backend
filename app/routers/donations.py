@@ -50,7 +50,6 @@ async def create_stripe_checkout(
 
     try:
         session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
             customer_email=donor_email if donor_email else None,
             line_items=[
                 {
