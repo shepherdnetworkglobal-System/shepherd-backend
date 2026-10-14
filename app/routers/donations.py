@@ -100,17 +100,29 @@ def _confirm_donation_in_db(db: Session, donation_id: int, tx_hash: str):
 from sqlalchemy import func
 
 @router.post("/verify-stripe/{donation_id}")
-def verify_stripe_donation(donation_id: int, db: Session = Depends(get_db)):
+async def verify_stripe_donation(donation_id: int, db: Session = Depends(get_db)):
     donation = db.query(Donation).filter(Donation.id == donation_id).first()
     if not donation:
         raise HTTPException(status_code=404, detail="Donation not found")
     
     mission = db.query(Mission).filter(Mission.id == donation.mission_id).first()
     
-    # Mark donation confirmed if pending
+    # Perform automated Stellar hot wallet disbursement if donation was pending
     if str(donation.status).upper() in ["PENDING", "DONATIONSTATUS.PENDING"]:
+        recipient_wallet = "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335WF2TZZS3FIEROSVC27J324L6" # Standard platform recipient address
+        
+        if mission and hasattr(mission, "missionary") and mission.missionary:
+            recipient_wallet = getattr(mission.missionary, "payout_wallet", None) or recipient_wallet
+        
+        # Trigger on-chain hot wallet settlement
+        tx_hash = await stellar_service.disburse_from_treasury(
+            recipient_public_key=recipient_wallet,
+            amount_usd=float(donation.amount_usd or 0),
+            memo_text=f"SHEPHERD #{donation.id}"
+        )
+        
         donation.status = DonationStatus.CONFIRMED_ONCHAIN
-        donation.stellar_tx_hash = f"STRIPE-SUCCESS-{donation_id}"
+        donation.stellar_tx_hash = tx_hash
         db.commit()
 
     # Recalculate true sum of all confirmed donations for this mission
@@ -126,6 +138,7 @@ def verify_stripe_donation(donation_id: int, db: Session = Depends(get_db)):
     return {
         "donation_id": donation.id,
         "status": str(donation.status),
+        "stellar_tx_hash": donation.stellar_tx_hash,
         "amount_usd": float(donation.amount_usd or 0),
         "donor_name": donation.donor_name or "Generous Donor",
         "donor_email": donation.donor_email or "",
