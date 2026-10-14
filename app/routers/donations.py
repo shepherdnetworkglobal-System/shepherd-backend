@@ -26,7 +26,7 @@ async def create_stripe_checkout(
     donor_name = payload.get("donor_name")
     donor_email = payload.get("donor_email")
     progress_opt_in = payload.get("progress_opt_in", True)
-    origin_url = payload.get("origin_url", "https://shepherd-frontend-two.vercel.app")
+    origin_url = payload.get("origin_url", "https://shepherdnetwork.global")
 
     if not mission_id or not amount_usd or float(amount_usd) <= 0:
         raise HTTPException(status_code=400, detail="Invalid mission ID or amount")
